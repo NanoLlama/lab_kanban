@@ -17,7 +17,7 @@ const total = (p) => p.$$eval('.stage-head .count', (c) => c.reduce((s, e) => s 
     const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
     await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
     const page = await ctx.newPage(); const errs = []; page.on('pageerror', (e) => errs.push(String(e)));
-    await page.addInitScript((d) => { if (!sessionStorage.getItem('s')) { sessionStorage.setItem('s', 1); localStorage.setItem('labboard.data.v1', d); localStorage.setItem('labboard.prefs.v1', '{"groupBy":"none"}') } }, JSON.stringify(mini([T(1, { title: 'Drag me' }), T(2), T(3, { stageId: 'st_prog' })])));
+    await page.addInitScript((d) => { if (!sessionStorage.getItem('s')) { sessionStorage.setItem('s', 1); localStorage.setItem('labboard.data.v1', d); localStorage.setItem('labboard.prefs.v1', '{"groupBy":"none","abDontAsk":true,"abNoticeSeen":true}') } }, JSON.stringify(mini([T(1, { title: 'Drag me' }), T(2), T(3, { stageId: 'st_prog' })])));
     await page.goto(L.FILE); await page.waitForSelector('.card');
     const cdp = await ctx.newCDPSession(page);
     const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });

@@ -74,6 +74,19 @@ h1,h2,h3,h4{margin:0}
 .icon-btn:hover{color:var(--fg);background:var(--band-2)}
 .icon-btn[disabled]{opacity:.35;cursor:default}
 .status{font:12px var(--f-mono);color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+/* automatic backup file indicator */
+.ab-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:3px 10px;font:12px var(--f-mono);color:var(--muted);cursor:pointer}
+.ab-chip:hover{border-color:var(--muted);color:var(--fg)}
+.ab-chip i{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.ab-chip[data-s="on"] i{background:var(--ok)}
+.ab-chip[data-s="paused"] i{background:var(--warn)}
+.ab-chip[data-s="error"] i{background:var(--crit)}
+.ab-chip[data-s="paused"],.ab-chip[data-s="error"]{color:var(--fg)}
+.ab-box{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--bg);display:flex;flex-direction:column;gap:8px}
+.ab-box .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ab-note{font-size:12.5px;color:var(--muted);margin:0}
+.ab-note strong{color:var(--fg)}
+.browser-req{display:inline-flex;align-items:center;gap:6px;font:500 12px var(--f-body);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,var(--line));border-radius:6px;padding:2px 8px}
 .status i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
 .status[data-s="saving"] i{background:var(--warn)}
 .status[data-s="local"] i{background:var(--muted)}
@@ -264,6 +277,7 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
     </div>
     <div class="actions">
       <span class="status" id="status" data-s="saving"><i></i><span>Loading</span></span>
+      <button class="ab-chip" id="ab-chip" type="button" hidden><i></i><span>Auto-backup</span></button>
       <div class="tabs" role="tablist" aria-label="View">
         <button role="tab" id="tab-board" data-view="board" aria-selected="true">Board</button>
         <button role="tab" id="tab-timeline" data-view="timeline" aria-selected="false">Timelines</button>
@@ -400,11 +414,11 @@ var saveTimer=null, saving=false, again=false, retryTimer=null, retryDelay=0, qu
 var ui=loadPrefs();
 function loadPrefs(){
   var d={view:'board',groupBy:'priority',collapsed:{},expanded:{},colW:{},f:{project:'',assignee:'',q:'',overdue:false}};
-  try{var r=JSON.parse(localStorage.getItem(PREF_KEY)||'null'); if(r){d.view=r.view==='timeline'?'timeline':'board'; d.groupBy=r.groupBy||d.groupBy; d.collapsed=r.collapsed||{};
+  try{var r=JSON.parse(localStorage.getItem(PREF_KEY)||'null'); if(r){d.view=r.view==='timeline'?'timeline':'board'; d.groupBy=r.groupBy||d.groupBy; d.collapsed=r.collapsed||{};d.abDontAsk=!!r.abDontAsk;d.abNoticeSeen=!!r.abNoticeSeen;
     if(isObj(r.colW))Object.keys(r.colW).forEach(function(k){var w=+r.colW[k];if(w>=COL_MIN&&w<=COL_MAX)d.colW[k]=Math.round(w)});}}catch(e){}
   return d;
 }
-function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify({view:ui.view,groupBy:ui.groupBy,collapsed:ui.collapsed,colW:ui.colW}))}catch(e){}}
+function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify({view:ui.view,groupBy:ui.groupBy,collapsed:ui.collapsed,colW:ui.colW,abDontAsk:!!ui.abDontAsk,abNoticeSeen:!!ui.abNoticeSeen}))}catch(e){}}
 
 function defaultState(){
   return {version:2,meta:{title:'Lab Task Board',nextNum:1,sample:false,lastBackupAt:'',updatedAt:'',customColors:[]},
@@ -496,7 +510,7 @@ function visible(t){
 function canon(x){return Array.isArray(x)?'['+x.map(canon).join(',')+']':x&&typeof x==='object'?'{'+Object.keys(x).sort().map(function(k){return JSON.stringify(k)+':'+canon(x[k])}).join(',')+'}':JSON.stringify(x===undefined?null:x)}
 function clone(x){return JSON.parse(JSON.stringify(x))}
 function setStatus(s,text){var e=$('#status');e.dataset.s=s;e.lastElementChild.textContent=text}
-function commit(){state.meta.updatedAt=new Date().toISOString();render();scheduleSave()}
+function commit(){state.meta.updatedAt=new Date().toISOString();render();scheduleSave();abSchedule()}
 function scheduleSave(){
   if(readOnly){setStatus('readonly','View only, not saved');return}
   setStatus('saving','Saving');
@@ -531,7 +545,7 @@ async function flush(){
 var idb=null;
 function idbOpen(){return new Promise(function(res,rej){var r;try{r=indexedDB.open('labboard',1)}catch(e){rej(e);return}
   r.onupgradeneeded=function(){r.result.createObjectStore('kv')};r.onsuccess=function(){res(r.result)};r.onerror=function(){rej(r.error)};r.onblocked=function(){rej(new Error('blocked'))}})}
-function idbTx(mode,fn){return new Promise(function(res,rej){var tx=idb.transaction('kv',mode),q=fn(tx.objectStore('kv'));tx.oncomplete=function(){res(q.result)};tx.onerror=function(){rej(tx.error)};tx.onabort=function(){rej(tx.error||new Error('aborted'))}})}
+function idbTx(mode,fn,db){return new Promise(function(res,rej){var tx=(db||idb).transaction('kv',mode),q=fn(tx.objectStore('kv'));tx.oncomplete=function(){res(q.result)};tx.onerror=function(){rej(tx.error)};tx.onabort=function(){rej(tx.error||new Error('aborted'))}})}
 function idbGet(k){return idbTx('readonly',function(s){return s.get(k)})}
 function idbPut(k,v){return idbTx('readwrite',function(s){return s.put(v,k)})}
 async function flushLocal(){
@@ -595,7 +609,7 @@ async function flushShared(){
   retryDelay=0;setStatus('saved','Saved, shared');
 }
 var renderQueued=false;
-function softRender(){if(renderQueued)return;renderQueued=true;setTimeout(function(){renderQueued=false;render()},16)}
+function softRender(){if(renderQueued)return;renderQueued=true;setTimeout(function(){renderQueued=false;render();abSchedule()},16)}
 function onMetaSnap(snap){
   var d=snap.exists?snap.data():null;
   if(!loaded){pendingMeta=d;metaReady=true;tryReady();return}
@@ -727,7 +741,7 @@ function syncChrome(){
   var soon=open.filter(function(t){if(!t.due)return false;var d=toDay(t.due)-TODAY;return d>=0&&d<=7}).length;
   var done7=state.tasks.filter(function(t){return isDone(t)&&t.doneAt&&(TODAY-Math.floor(Date.parse(t.doneAt)/DAY))<=7}).length;
   $('#stats').innerHTML='<span><b>'+open.length+'</b> open</span><span class="'+(over?'bad':'')+'"><b>'+over+'</b> overdue</span><span><b>'+soon+'</b> due in 7 days</span><span><b>'+done7+'</b> done this week</span>';
-  var last=state.meta.lastBackupAt?Date.parse(state.meta.lastBackupAt):0;
+  var last=Math.max(state.meta.lastBackupAt?Date.parse(state.meta.lastBackupAt):0,ab.state==='on'?ab.lastAt:0);
   $('#btn-backup').classList.toggle('stale',!last||(Date.now()-last)>7*DAY);
   var b=$('#banner');
   if(state.meta.sample){
@@ -955,6 +969,7 @@ function renderTimeline(){
 }
 function render(){
   if(!state){return}
+  if(loaded&&!ab.started){ab.started=true;setTimeout(abInit,300)}
   syncChrome();
   if(ui.view==='timeline')renderTimeline();else renderBoard();
 }
@@ -1210,12 +1225,18 @@ function csvText(){
 }
 async function saveFile(name,data){
   var dl=null;try{dl=await window.claude.use('downloads')}catch(e){dl=null}
-  if(!dl)return 'unavailable';
+  if(!dl){
+    // Opened as a plain file: use an ordinary browser download.
+    try{var type=/\.csv$/.test(name)?'text/csv':'application/json',url=URL.createObjectURL(new Blob([data],{type:type})),a=document.createElement('a');
+      a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},4000);return 'ok'}
+    catch(e){return 'unavailable'}
+  }
   try{await dl.save({filename:name,data:data});return 'ok'}catch(e){return (e&&e.code)||'unavailable'}
 }
 function openBackup(){
   var pending=null,last=state.meta.lastBackupAt;
-  var body='<div class="sec"><h3>Download a backup</h3><p class="hint">The backup is one JSON file with every project, stage, task and deadline. Download one before big changes and keep a copy outside this board.'
+  var body='<div class="sec"><h3>Automatic backup file</h3><div id="ab-sec">'+abSectionHtml()+'</div></div>'
+    +'<div class="sec"><h3>Download a backup</h3><p class="hint">The backup is one JSON file with every project, stage, task and deadline. Download one before big changes and keep a copy outside this board.'
     +(last?' Last backup: '+esc(new Date(last).toLocaleString())+'.':' No backup has been downloaded yet.')+'</p>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" data-m="dl-json">Download backup (.json)</button><button class="btn" type="button" data-m="dl-csv">Export tasks (.csv)</button><button class="btn" type="button" data-m="copy">Copy backup JSON</button></div>'
     +'<p class="msg" id="b-msg" role="status" hidden></p>'
@@ -1243,6 +1264,10 @@ function openBackup(){
     action:async function(name,btn){
       var msg=$('#b-msg');
       function say(t,c){msg.className='msg '+(c||'');msg.textContent=t;msg.hidden=false}
+      if(name==='ab-choose'||name==='ab-resume'||name==='ab-off'){
+        if(name==='ab-choose')await abChoose();else if(name==='ab-resume')await abResume();else await abOff();
+        var sec=$('#ab-sec');if(sec)sec.innerHTML=abSectionHtml();return;
+      }
       if(name==='dl-json'){
         var r=await saveFile('lab-board-backup-'+isoLocal(new Date())+'.json',backupJson());
         if(r==='ok'){state.meta.lastBackupAt=new Date().toISOString();commit();say('Backup saved.','ok')}
@@ -1259,6 +1284,127 @@ function openBackup(){
         state=pending;state.meta.sample=!!state.meta.sample;commit();closeModal();offerUndo('Backup restored',snap);
       }
     }});
+}
+
+/* ---------- automatic backup file ----------
+   Chrome and Edge on a computer can keep writing to a file the user picked once (File System Access API).
+   The board rewrites that file a moment after every change, local or from a teammate. The file handle is
+   remembered in this browser; after a browser restart Chrome asks once to allow writing again, unless the
+   user chose "Allow on every visit". Other browsers and embedded views cannot do this. */
+var AB_HANDLE='backupHandle', AB_TIME='labboard.autobackup.at';
+var ab={supported:typeof window.showSaveFilePicker==='function'&&window.self===window.top,embedded:window.self!==window.top,
+  handle:null,state:'off',lastAt:0,timer:null,writing:false,again:false,err:'',db:null,started:false};
+function abName(){return ab.handle&&ab.handle.name?ab.handle.name:'the backup file'}
+function abTime(){return ab.lastAt?new Date(ab.lastAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):''}
+var BROWSER_REQ='<span class="browser-req">Works only in Chrome or Edge on a computer</span>';
+function syncAbChip(){
+  var c=$('#ab-chip');if(!c)return;
+  c.hidden=!ab.supported;c.dataset.s=ab.state;
+  var t={on:'Auto-backup on',paused:'Auto-backup paused',error:'Auto-backup error',off:'Auto-backup off'}[ab.state];
+  c.lastElementChild.textContent=t;
+  c.title=ab.state==='on'?'Writing to '+abName()+(ab.lastAt?', last saved '+abTime():''):ab.state==='paused'?'Click to resume writing to '+abName():ab.state==='error'?ab.err:'Click to choose a backup file location';
+}
+async function abInit(){
+  try{ab.lastAt=+localStorage.getItem(AB_TIME)||0}catch(e){}
+  syncAbChip();
+  if(!ab.supported){if(!ui.abNoticeSeen&&!readOnly&&$('#overlay').hidden)openAbUnsupported();return}
+  try{ab.db=idb||await idbOpen()}catch(e){ab.db=null}
+  var h=null;try{if(ab.db)h=await idbTx('readonly',function(s){return s.get(AB_HANDLE)},ab.db)}catch(e){}
+  if(h){
+    ab.handle=h;var p='prompt';try{p=await h.queryPermission({mode:'readwrite'})}catch(e){}
+    if(p==='granted'){ab.state='on';syncAbChip();abWrite()}
+    else{ab.state='paused';syncAbChip();if($('#overlay').hidden&&!readOnly)openAbReconnect()}
+    return;
+  }
+  if(!ui.abDontAsk&&!readOnly&&$('#overlay').hidden)openAbSetup();
+}
+function abSchedule(ms){if(ab.state!=='on')return;clearTimeout(ab.timer);ab.timer=setTimeout(function(){ab.timer=null;abWrite()},ms==null?1500:ms)}
+async function abWrite(){
+  if(!ab.handle||!state)return;
+  if(ab.writing){ab.again=true;return}
+  ab.writing=true;
+  try{
+    var w=await ab.handle.createWritable();await w.write(backupJson());await w.close();
+    ab.lastAt=Date.now();ab.state='on';ab.err='';try{localStorage.setItem(AB_TIME,String(ab.lastAt))}catch(e){}
+  }catch(e){abFail(e)}
+  ab.writing=false;syncAbChip();
+  var last=Math.max(state.meta.lastBackupAt?Date.parse(state.meta.lastBackupAt):0,ab.state==='on'?ab.lastAt:0);
+  $('#btn-backup').classList.toggle('stale',!last||(Date.now()-last)>7*DAY);
+  if(ab.again){ab.again=false;abWrite()}
+}
+function abFail(e){
+  var n=e&&e.name;
+  ab.state=n==='NotAllowedError'||n==='SecurityError'?'paused':'error';
+  ab.err=n==='NotFoundError'?'The backup file was moved or deleted. Choose a location again.'
+    :n==='NotAllowedError'||n==='SecurityError'?'The browser needs permission again to write '+abName()+'.'
+    :n==='NoModificationAllowedError'||n==='InvalidStateError'?'The backup file is locked or read-only. Choose another location.'
+    :'Could not write the backup file'+(e&&e.message?': '+e.message:'.');
+  syncAbChip();
+  if(ab.state==='error')toast(ab.err,7000);
+}
+// Must run from a click: browsers only open the save dialog in response to a user action.
+async function abChoose(){
+  var h;
+  try{h=await window.showSaveFilePicker({suggestedName:'lab-board-backup.json',types:[{description:'Lab board backup',accept:{'application/json':['.json']}}]})}
+  catch(e){if(e&&e.name==='AbortError')return false;abFail(e);return false}
+  ab.handle=h;ab.state='on';ui.abDontAsk=false;savePrefs();
+  try{if(ab.db)await idbTx('readwrite',function(s){return s.put(h,AB_HANDLE)},ab.db)}catch(e){}
+  await abWrite();
+  if(ab.state==='on')toast('Automatic backup on. Saving to '+abName()+' after every change.',5000);
+  return ab.state==='on';
+}
+async function abResume(){
+  if(!ab.handle)return abChoose();
+  try{var p=await ab.handle.requestPermission({mode:'readwrite'});if(p==='granted'){ab.state='on';await abWrite();if(ab.state==='on')toast('Automatic backup resumed.');return ab.state==='on'}}
+  catch(e){abFail(e)}
+  return false;
+}
+async function abOff(){
+  clearTimeout(ab.timer);ab.handle=null;ab.state='off';ab.err='';
+  try{if(ab.db)await idbTx('readwrite',function(s){return s.delete(AB_HANDLE)},ab.db)}catch(e){}
+  syncAbChip();toast('Automatic backup turned off. The existing file was left in place.',4000);
+}
+function abSectionHtml(){
+  if(!ab.supported)return '<div class="ab-box"><p class="ab-note">'+BROWSER_REQ+'</p><p class="ab-note">'
+    +(ab.embedded?'It also does not work inside an embedded view. Open the board\'s .html file directly in Chrome or Edge to use it.':'This browser cannot write to a file automatically.')
+    +' Use <strong>Download backup</strong> below regularly instead; the red dot on the Backup button reminds you after 7 days.</p></div>';
+  var st=ab.state==='on'?'<strong>On.</strong> Saving to <strong>'+esc(abName())+'</strong> after every change'+(ab.lastAt?', last at '+esc(abTime()):'')+'.'
+    :ab.state==='paused'?'<strong>Paused.</strong> The browser needs your permission again to write <strong>'+esc(abName())+'</strong>.'
+    :ab.state==='error'?'<strong>Not saving.</strong> '+esc(ab.err)
+    :'<strong>Off.</strong> Choose a location and the board keeps a .json copy there, updated after every change.';
+  return '<div class="ab-box"><p class="ab-note">'+st+'</p>'
+    +'<div class="row">'+(ab.state==='paused'?'<button class="btn primary" type="button" data-m="ab-resume">Resume</button>':'')
+    +'<button class="btn'+(ab.state==='off'||ab.state==='error'?' primary':'')+'" type="button" data-m="ab-choose">'+(ab.handle?'Change location…':'Choose location…')+'</button>'
+    +(ab.handle?'<button class="btn ghost" type="button" data-m="ab-off">Turn off</button>':'')+BROWSER_REQ+'</div>'
+    +'<p class="ab-note">Tip: pick a folder that syncs to the cloud (Dropbox, OneDrive, Google Drive, iCloud Drive) so the copy also survives losing this computer. For privacy the browser never shows the folder path, only the file name. To restore, use <strong>Restore from a backup</strong> below and pick that file.</p></div>';
+}
+function openAbSetup(){
+  openModal({title:'Set up automatic backup',noFocus:true,
+    body:'<p class="ab-note" style="margin-bottom:10px">'+BROWSER_REQ+'</p>'
+      +'<p>Keep a copy of this board in a file on your computer. Choose where to save it and the board writes <strong>lab-board-backup.json</strong> there a moment after every change, so restarts, cleared browser data or a new computer cannot wipe out your work.</p>'
+      +'<p class="hint">Good choice: a folder that syncs to the cloud (Dropbox, OneDrive, Google Drive, iCloud Drive). After the browser restarts, Chrome or Edge asks once to allow writing to the file again; pick <strong>Allow on every visit</strong> if offered to skip that.</p>'
+      +'<label class="chk"><input type="checkbox" id="ab-dont"> Don\'t ask again when I open the board</label>',
+    foot:'<span class="sp"></span><button class="btn ghost" type="button" data-m="ab-later">Not now</button><button class="btn primary" type="button" data-m="ab-choose">Choose location…</button>',
+    action:async function(name){
+      if(name==='ab-later'){ui.abDontAsk=$('#ab-dont').checked;savePrefs();closeModal();if(ui.abDontAsk)toast('You can turn it on any time under Backup.',4000);return}
+      if(name==='ab-choose'){if(await abChoose())closeModal()}
+    }});
+}
+function openAbReconnect(){
+  openModal({title:'Resume automatic backup?',noFocus:true,
+    body:'<p>This board backs up to <strong>'+esc(abName())+'</strong>. After a browser restart, the browser needs your OK before the board can write to that file again.</p><p class="hint">'+BROWSER_REQ+'</p>',
+    foot:'<button class="btn ghost" type="button" data-m="ab-off">Turn off</button><span class="sp"></span><button class="btn ghost" type="button" data-close>Not now</button><button class="btn primary" type="button" data-m="ab-resume">Resume backup</button>',
+    action:async function(name){
+      if(name==='ab-resume'){if(await abResume())closeModal();return}
+      if(name==='ab-off'){await abOff();closeModal()}
+    }});
+}
+function openAbUnsupported(){
+  openModal({title:'Automatic backup is not available here',noFocus:true,
+    body:'<p>'+BROWSER_REQ+'</p><p>'+(ab.embedded?'It also does not work inside an embedded view. To use it, open the board\'s .html file directly in Chrome or Edge.':'This browser cannot keep writing to a backup file. To use automatic backup, open this board in Chrome or Edge on a computer.')+'</p>'
+      +'<p class="hint">Here, use <strong>Backup → Download backup (.json)</strong> regularly. The red dot on the Backup button reminds you when the last backup is more than 7 days old.</p>',
+    foot:'<span class="sp"></span><button class="btn primary" type="button" data-m="ab-ok">OK</button>',
+    action:function(name){if(name==='ab-ok'){ui.abNoticeSeen=true;savePrefs();closeModal()}}});
 }
 
 /* ---------- event wiring ---------- */
@@ -1338,6 +1484,8 @@ $('#btn-new').addEventListener('click',function(){openTask(null)});
 $('#btn-projects').addEventListener('click',openProjects);
 $('#btn-stages').addEventListener('click',openStages);
 $('#btn-backup').addEventListener('click',openBackup);
+$('#ab-chip').addEventListener('click',function(){if(ab.state==='paused')abResume();else openBackup()});
+document.addEventListener('visibilitychange',function(){if(document.hidden&&ab.timer){clearTimeout(ab.timer);ab.timer=null;abWrite()}});
 $$('.tabs button').forEach(function(b){b.addEventListener('click',function(){ui.view=b.dataset.view;savePrefs();render()})});
 $('#grp').addEventListener('change',function(e){ui.groupBy=e.target.value;savePrefs();render()});
 $('#flt-project').addEventListener('change',function(e){ui.f.project=e.target.value;render()});

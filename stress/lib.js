@@ -44,7 +44,10 @@ let browser;
 async function getBrowser() { return browser || (browser = await chromium.launch()); }
 
 // Opens the board. `data` seeds localStorage; `claude` is an init-script string that defines window.claude.
-async function open({ data, claude, viewport, prefs, clock } = {}) {
+// Tests other than the auto-backup suite start with the auto-backup prompt switched off.
+const QUIET = { abDontAsk: true, abNoticeSeen: true };
+async function open({ data, claude, viewport, prefs, clock, autoBackup } = {}) {
+  prefs = autoBackup ? prefs : Object.assign({}, QUIET, prefs || {});
   const b = await getBrowser();
   const ctx = await b.newContext({ viewport: viewport || { width: 1400, height: 900 } });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
@@ -76,4 +79,4 @@ async function timeIt(page, fnSrc) {
 
 async function status(page) { return page.$eval('#status', (e) => e.dataset.s + ' | ' + e.textContent.trim()); }
 
-module.exports = { FILE, DAY, iso, genBoard, open, timeIt, status, getBrowser, close: async () => browser && browser.close() };
+module.exports = { QUIET, FILE, DAY, iso, genBoard, open, timeIt, status, getBrowser, close: async () => browser && browser.close() };

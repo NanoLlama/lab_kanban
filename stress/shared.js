@@ -68,6 +68,7 @@ async function client(server, viewport) {
   page._errors = []; page.on('pageerror', (e) => page._errors.push(String(e)));
   await server.attach(page);
   await page.addInitScript(MOCK);
+  await page.addInitScript(() => localStorage.setItem('labboard.prefs.v1', '{"abDontAsk":true,"abNoticeSeen":true}'));
   await page.goto(L.FILE);
   await page.waitForFunction(() => !document.querySelector('#view .loading') && /Saved|View/.test(document.getElementById('status').textContent), null, { timeout: 30000 });
   return { page, ctx };

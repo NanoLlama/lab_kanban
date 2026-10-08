@@ -159,6 +159,32 @@ Removing a stage now asks where its tasks should go (a dropdown of the other sta
 | Rename on client A | client B's header and tab title update |
 | `<img onerror>` as a title | shown as text, not run |
 
+## Round 4: automatic backup file
+
+**Works only in Chrome or Edge on a computer** (Windows, macOS, Linux, ChromeOS). It relies on the File System Access API, which Firefox, Safari and mobile browsers don't offer.
+
+- **On opening**, the board asks *Set up automatic backup*. **Choose location…** opens the system Save dialog (suggested name `lab-board-backup.json`). Browsers only open that dialog from a click, which is why there is a prompt rather than the dialog opening by itself.
+- After that, the board rewrites the file about 1.5 seconds after every change: your own edits and, on a shared board, teammates' edits. Pending changes are also written when the tab is hidden or closed.
+- The chosen file is remembered in this browser. After a browser restart, Chrome or Edge needs one click to allow writing again (*Resume automatic backup?*), unless you picked **Allow on every visit**.
+- A header chip shows the state: **Auto-backup on** (green) / **paused** (amber, click to resume) / **error** (red, e.g. the file was moved or deleted) / **off**. *Backup → Automatic backup file* has Change location, Resume and Turn off.
+- **Not now** asks again next time; tick **Don't ask again** to stop. In other browsers a one-time notice explains that it needs Chrome or Edge and points to *Download backup*.
+- A file in a cloud-synced folder (Dropbox, OneDrive, Google Drive, iCloud Drive) also protects against losing the computer. Restore it with *Backup → Restore from a backup*.
+- **Fixed alongside:** *Download backup* and *Export tasks (.csv)* didn't work when the board was opened as a plain file ("Downloads are not available in this view"). They now fall back to a normal browser download.
+
+| Test (`stress/autobackup.js`) | Result |
+|---|---|
+| First open | prompt shown, labelled "Works only in Chrome or Edge on a computer" |
+| Choose location | file written immediately (empty board) |
+| Load 20 example tasks / rename / reload and add a task | file follows: 20 tasks → new title → 21 tasks; no prompt after reload |
+| Browser restart (permission back to "ask") | *Resume automatic backup?* → one click → writing again |
+| Not now + Don't ask again | no prompt next time; still offered under Backup |
+| Cancel the Save dialog | nothing changes |
+| File deleted while open | red chip + "The backup file was moved or deleted. Choose a location again." |
+| Firefox/Safari-like browser | one-time notice naming Chrome or Edge; chip hidden |
+| Download backup from a plain-file page | `lab-board-backup-YYYY-MM-DD.json` with all 20 tasks |
+
+How it was tested: headless Chrome can't show the native Save dialog, so the test hands the page a real browser file handle in its place. Writing, remembering the handle and permission checks run through the real browser APIs. Opened as a plain `file://` page, Chrome allows the picker (it returned "user cancelled", not a security error). One step still needs a person: a real save to your disk in desktop Chrome or Edge.
+
 ## Known limits
 - Shared mode assumes a collection subscription delivers every task. The store documents queries as suited to "hundreds to low thousands" of documents and caps a database at 25,000. Past a few thousand tasks, archive Done tasks into a backup.
 - Two people saving the **same field** of the same task at the same instant: the last write wins (there are no transactions).
