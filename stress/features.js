@@ -113,5 +113,57 @@ const total = (p) => p.$$eval('.stage-head .count', (c) => c.reduce((s, e) => s 
     log({ test: 'render', ...r, ...kept, cardsAfterShowMore: expanded, totalCount: await total(page) });
     await ctx.close();
   }
+  // 5. Column resizing by mouse, keyboard and double-click reset; widths survive edits and reloads.
+  {
+    const { page, ctx } = await L.open({ data: mini([T(1), T(2, { stageId: 'st_prog' })]), prefs: { groupBy: 'priority' } });
+    const width = (sel) => page.$eval(sel, (e) => Math.round(e.getBoundingClientRect().width));
+    const before = await width('.stage-head[data-stage=st_todo]'), otherBefore = await width('.stage-head[data-stage=st_prog]');
+    const h = await page.locator('.stage-head[data-stage=st_todo] .col-rz').boundingBox();
+    await page.mouse.move(h.x + h.width / 2, h.y + 10); await page.mouse.down();
+    await page.mouse.move(h.x + 60, h.y + 10, { steps: 5 }); await page.mouse.move(h.x + 125, h.y + 10, { steps: 5 }); await page.mouse.up();
+    const afterDrag = await width('.stage-head[data-stage=st_todo]');
+    // narrow past the minimum
+    const h2 = await page.locator('.stage-head[data-stage=st_prog] .col-rz').boundingBox();
+    await page.mouse.move(h2.x + 5, h2.y + 10); await page.mouse.down(); await page.mouse.move(h2.x - 900, h2.y + 10, { steps: 8 }); await page.mouse.up();
+    const clampedMin = await width('.stage-head[data-stage=st_prog]');
+    // lane label column
+    const hl = await page.locator('.corner .col-rz').boundingBox();
+    await page.mouse.move(hl.x + 5, hl.y + 10); await page.mouse.down(); await page.mouse.move(hl.x + 85, hl.y + 10, { steps: 5 }); await page.mouse.up();
+    const laneW = await width('.corner');
+    // an edit re-renders the cell but must keep the widths
+    await page.click('.card'); await page.fill('#f-title', 'Edited'); await page.click('[data-m=save]');
+    const afterEdit = await width('.stage-head[data-stage=st_todo]');
+    // keyboard
+    await page.focus('.stage-head[data-stage=st_todo] .col-rz'); await page.keyboard.press('ArrowRight'); await page.keyboard.press('Shift+ArrowRight');
+    const afterKeys = await width('.stage-head[data-stage=st_todo]');
+    // a header drag must not open a dialog or move cards
+    const dialogOpened = await page.$eval('#overlay', (o) => !o.hidden);
+    await page.reload(); await page.waitForSelector('.stage-head');
+    const afterReload = await width('.stage-head[data-stage=st_todo]');
+    await page.dblclick('.stage-head[data-stage=st_todo] .col-rz');
+    const afterReset = await width('.stage-head[data-stage=st_todo]');
+    log({ test: 'columns', before, afterDrag, otherColumnBefore: otherBefore, clampedMin, laneW, afterEdit, afterKeys, afterReload, afterReset, dialogOpened, errors: page._errors });
+    await ctx.close();
+  }
+  // 6. Board title: rename, cancel, empty falls back to default, persists, keeps through example data.
+  {
+    const { page, ctx } = await L.open({});
+    await page.click('#title-btn'); await page.fill('#title-in', 'Rivera Lab: Q4 Bench Work'); await page.keyboard.press('Enter');
+    const shown = await page.textContent('#title-text'), docTitle = await page.title();
+    await page.click('#title-btn'); await page.fill('#title-in', 'Discard me'); await page.keyboard.press('Escape');
+    const afterEsc = await page.textContent('#title-text');
+    await page.click('#title-btn'); await page.fill('#title-in', 'Saved on blur'); await page.click('#stats');
+    const afterBlur = await page.textContent('#title-text');
+    await page.click('[data-act=load-sample]');
+    const afterSample = await page.textContent('#title-text');
+    await page.waitForTimeout(600); await page.reload(); await page.waitForSelector('.card');
+    const afterReload = await page.textContent('#title-text');
+    await page.click('#title-btn'); await page.fill('#title-in', '   '); await page.keyboard.press('Enter');
+    const emptyFallsBack = await page.textContent('#title-text');
+    await page.click('#title-btn'); await page.fill('#title-in', '<img src=x onerror=window.__x=1>'); await page.keyboard.press('Enter');
+    const xss = await page.evaluate(() => window.__x || 0);
+    log({ test: 'title', shown, docTitle, afterEsc, afterBlur, afterSample, afterReload, emptyFallsBack, xss, errors: page._errors });
+    await ctx.close();
+  }
   await L.close();
 })();

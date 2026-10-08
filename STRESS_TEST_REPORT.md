@@ -136,6 +136,29 @@ Removing a stage now asks where its tasks should go (a dropdown of the other sta
 - **Saved colors**: any custom color used on the board is offered in every picker, for everyone on a shared board (up to 16, newest first).
 - **Per-card color**: a task can override its project color (*Card color* in the task dialog, with *Use project color* to go back). The card tint and its timeline bar use the override, while the project chip keeps the project color, so cards still read by project. The CSV export gains a `color` column.
 
+## Round 3: resizable columns and an editable title
+
+### Resizable columns
+- Drag the right edge of any column header to resize that column. The swimlane label column on the left resizes the same way. A blue line marks the edge on hover and while dragging.
+- **Double-click** the edge to return that column to automatic width. Keyboard: Tab to the edge, then **←/→** (20 px; with **Shift**, 60 px), and **Delete** resets.
+- Stage columns stay between 160 and 900 px and the label column between 90 and 400 px. Resized columns keep their width; the rest share the remaining space.
+- Widths are a **per-person view setting** saved in that browser, so each person sizes the board for their own screen without changing anyone else's. They survive edits, regrouping and reloads.
+- The test exposed one usability bug, fixed: the grab zone first overhung into the next column's header, which painted over half of it.
+
+### Editable board title
+- Click the title (a pencil appears on hover) to rename the board. **Enter** or clicking away saves, **Esc** cancels, and an empty title falls back to "Lab Task Board".
+- The browser tab title follows it. The title is part of the board data: it is shared with everyone on a shared board, included in backups, and kept when example data is loaded. View-only users see it but can't edit it.
+
+| Test | Result |
+|---|---|
+| Drag "To Do" edge +125 px | 300 → 420 px; neighbor unchanged |
+| Drag far past the minimum | stops at 160 px |
+| Edit a card, then reload | width kept (420 → 420, then 500 after keys, 500 after reload) |
+| Double-click the edge | back to automatic width |
+| Rename, Esc, blur, empty | saved / cancelled / saved / default restored |
+| Rename on client A | client B's header and tab title update |
+| `<img onerror>` as a title | shown as text, not run |
+
 ## Known limits
 - Shared mode assumes a collection subscription delivers every task. The store documents queries as suited to "hundreds to low thousands" of documents and caps a database at 25,000. Past a few thousand tasks, archive Done tasks into a backup.
 - Two people saving the **same field** of the same task at the same instant: the last write wins (there are no transactions).

@@ -40,7 +40,17 @@ h1,h2,h3,h4{margin:0}
 /* header */
 .top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-bottom:12px}
 .brand{display:flex;flex-direction:column;gap:2px;min-width:0;margin-right:auto}
-.brand h1{font:700 22px/1.1 var(--f-display);letter-spacing:-.01em}
+.brand h1{font:700 22px/1.1 var(--f-display);letter-spacing:-.01em;min-width:0}
+/* editable board title */
+.title-btn{all:unset;display:inline-flex;align-items:center;gap:8px;max-width:100%;cursor:text;border-radius:6px;padding:1px 4px;margin:-1px -4px;overflow-wrap:anywhere}
+.title-btn svg{width:15px;height:15px;color:var(--muted);opacity:0;transition:opacity .12s;flex:none}
+.title-btn:hover svg,.title-btn:focus-visible svg{opacity:1}
+.title-btn:hover{background:var(--band-2)}
+.title-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (hover:none){.title-btn svg{opacity:.7}}
+.ro .title-btn{cursor:default;pointer-events:none}
+.ro .title-btn svg{display:none}
+.title-in{font:700 22px/1.1 var(--f-display);letter-spacing:-.01em;border:1px solid var(--accent);border-radius:6px;background:var(--surface);padding:1px 6px;margin:-2px -7px;width:min(520px,100%);min-width:0}
 .stats{display:flex;flex-wrap:wrap;gap:2px 14px;font:12px var(--f-mono);color:var(--muted)}
 .stats b{color:var(--fg);font-weight:500}
 .stats .bad b{color:var(--crit)}
@@ -85,6 +95,13 @@ h1,h2,h3,h4{margin:0}
 .board-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
 .board{display:grid;min-width:calc(var(--lane-w) + var(--n) * 250px)}
 .corner,.stage-head{position:sticky;top:0;z-index:3;background:var(--surface);border-bottom:2px solid var(--fg)}
+/* column resize handle on the right edge of each header */
+/* kept inside its own header: the next sticky header would paint over anything that overhangs */
+.col-rz{position:absolute;top:0;bottom:-2px;right:0;width:10px;cursor:col-resize;z-index:5;touch-action:none;display:flex;justify-content:flex-end}
+.col-rz::after{content:"";width:2px;height:100%;background:transparent;transition:background .12s}
+.col-rz:hover::after,.col-rz:focus-visible::after,.col-rz.active::after{background:var(--accent)}
+.col-rz:focus-visible{outline:none}
+body.col-resizing,body.col-resizing *{cursor:col-resize!important;-webkit-user-select:none;user-select:none}
 .corner{left:0;z-index:4;padding:10px 12px;font:12px var(--f-mono);color:var(--muted);display:flex;align-items:flex-end}
 .stage-head{padding:10px 12px;display:flex;align-items:center;gap:8px;border-left:1px solid var(--line)}
 .stage-head h3{font:600 15px var(--f-display);letter-spacing:.01em}
@@ -242,7 +259,7 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
 <div id="app">
   <header class="top">
     <div class="brand">
-      <h1>Lab Task Board</h1>
+      <h1 id="board-title"><button class="title-btn" id="title-btn" type="button" title="Rename this board" aria-label="Board title: Lab Task Board. Click to rename."><span id="title-text">Lab Task Board</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2.5l2.5 2.5L6 12.5H3.5V10z"/></svg></button></h1>
       <div class="stats" id="stats"></div>
     </div>
     <div class="actions">
@@ -349,6 +366,8 @@ var PALETTE=['#0E9F8E','#E0662B','#7A5AF8','#D63B6F','#2D7FF9','#B8860B','#4C9F2
   '#D92D20','#F79009','#0BA5EC','#6172F3','#C11574','#9E77ED','#15B79E','#66A80F',
   '#A15C07','#3E4784','#DD2590','#087443','#0E7090','#B54708','#475467','#98A2B3'];
 var MAX_CUSTOM=16;
+// Column widths (px) a viewer can drag to. The swimlane column is stored under LANE_COL.
+var COL_MIN=160, COL_MAX=900, LANE_MIN=90, LANE_MAX=400, LANE_COL='__lanes';
 var PREF_KEY='labboard.prefs.v1', LOCAL_KEY='labboard.data.v1';
 var TL_MAX_DAYS=1100;
 var DAY=86400000, MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -380,11 +399,12 @@ var state=null, storage='pending', readOnly=false, loaded=false;
 var saveTimer=null, saving=false, again=false, retryTimer=null, retryDelay=0, quotaWarned=false;
 var ui=loadPrefs();
 function loadPrefs(){
-  var d={view:'board',groupBy:'priority',collapsed:{},expanded:{},f:{project:'',assignee:'',q:'',overdue:false}};
-  try{var r=JSON.parse(localStorage.getItem(PREF_KEY)||'null'); if(r){d.view=r.view==='timeline'?'timeline':'board'; d.groupBy=r.groupBy||d.groupBy; d.collapsed=r.collapsed||{};}}catch(e){}
+  var d={view:'board',groupBy:'priority',collapsed:{},expanded:{},colW:{},f:{project:'',assignee:'',q:'',overdue:false}};
+  try{var r=JSON.parse(localStorage.getItem(PREF_KEY)||'null'); if(r){d.view=r.view==='timeline'?'timeline':'board'; d.groupBy=r.groupBy||d.groupBy; d.collapsed=r.collapsed||{};
+    if(isObj(r.colW))Object.keys(r.colW).forEach(function(k){var w=+r.colW[k];if(w>=COL_MIN&&w<=COL_MAX)d.colW[k]=Math.round(w)});}}catch(e){}
   return d;
 }
-function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify({view:ui.view,groupBy:ui.groupBy,collapsed:ui.collapsed}))}catch(e){}}
+function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify({view:ui.view,groupBy:ui.groupBy,collapsed:ui.collapsed,colW:ui.colW}))}catch(e){}}
 
 function defaultState(){
   return {version:2,meta:{title:'Lab Task Board',nextNum:1,sample:false,lastBackupAt:'',updatedAt:'',customColors:[]},
@@ -688,6 +708,9 @@ async function boot(){
 
 /* ---------- chrome (header, filters, banner) ---------- */
 function syncChrome(){
+  var title=state.meta.title||'Lab Task Board';
+  document.title=title;
+  if(!$('#title-in')){$('#title-text').textContent=title;$('#title-btn').setAttribute('aria-label','Board title: '+title+'. Click to rename.')}
   $$('.tabs button').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.view===ui.view))});
   document.body.classList.toggle('hide-tl',ui.view==='timeline');
   $('#grp').value=ui.groupBy;
@@ -749,6 +772,14 @@ function cardHtml(t){
     +'</div></article>';
 }
 function cellId(lane,stage){return lane+'\u00a6'+stage}
+function rzHandle(key,label){return '<span class="col-rz" data-rz="'+esc(key)+'" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize '+esc(label)+' column" title="Drag to resize. Double-click to reset."></span>'}
+// Columns the viewer has sized keep their pixel width; the rest share the remaining space.
+function applyCols(){
+  var b=$('#view .board');if(!b)return;
+  var lw=ui.colW[LANE_COL],min=0,cols=state.stages.map(function(s){var w=ui.colW[s.id];min+=w||250;return w?w+'px':'minmax(250px,1fr)'});
+  b.style.gridTemplateColumns=(lw?lw+'px':'var(--lane-w)')+' '+cols.join(' ');
+  b.style.minWidth='calc('+(lw?lw+'px':'var(--lane-w)')+' + '+min+'px)';
+}
 // The board keeps the markup it last rendered for every header and cell. When the layout
 // (grouping, stages, lanes) is unchanged, only the pieces whose markup changed are replaced,
 // so an edit or a drop touches one or two cells instead of rebuilding every card.
@@ -769,11 +800,11 @@ function renderBoard(){
     var lk=laneKey(t),k=cellId(lk,sk);shown[sk]=(shown[sk]||0)+1;laneN[lk]=(laneN[lk]||0)+1;
     (bucket[k]||(bucket[k]=[])).push(t);
   });
-  var parts=[['corner','<div class="corner" data-k="corner">'+(g==='none'?'':esc({priority:'Priority',project:'Project',assignee:'Assignee'}[g]))+'</div>']];
+  var parts=[['corner','<div class="corner" data-k="corner">'+(g==='none'?'':esc({priority:'Priority',project:'Project',assignee:'Assignee'}[g]))+rzHandle(LANE_COL,'swimlane labels')+'</div>']];
   stages.forEach(function(s){
     var n=all[s.id]||0;
     parts.push(['s:'+s.id,'<div class="stage-head" data-k="'+esc('s:'+s.id)+'" data-stage="'+esc(s.id)+'">'+(s.done?ICON.check:'')+'<h3>'+esc(s.name)+'</h3><span class="count">'+(shown[s.id]||0)+'</span>'
-      +(s.wip?'<span class="wip'+(n>s.wip?' over':'')+'" title="Work-in-progress limit">'+n+' / '+s.wip+'</span>':'')+'</div>']);
+      +(s.wip?'<span class="wip'+(n>s.wip?' over':'')+'" title="Work-in-progress limit">'+n+' / '+s.wip+'</span>':'')+rzHandle(s.id,s.name)+'</div>']);
   });
   lanes.forEach(function(L){
     var ck=g+':'+L.key,col=!!ui.collapsed[ck];
@@ -796,7 +827,8 @@ function renderBoard(){
   });
   var sig=[g,readOnly,stages.map(function(s){return s.id}).join('\u00a6'),lanes.map(function(L){return L.key}).join('\u00a6')].join('\u0002');
   if(sig!==board.sig||!board.els||!root.contains(board.els.get('corner'))){
-    root.innerHTML='<div class="board-wrap"><div class="board" style="--n:'+stages.length+';grid-template-columns:var(--lane-w) repeat('+stages.length+',minmax(250px,1fr))">'+parts.map(function(p){return p[1]}).join('')+'</div></div>';
+    root.innerHTML='<div class="board-wrap"><div class="board" style="--n:'+stages.length+'">'+parts.map(function(p){return p[1]}).join('')+'</div></div>';
+    applyCols();
     board.sig=sig;board.html=Object.create(null);board.els=new Map();
     parts.forEach(function(p){board.html[p[0]]=p[1]});
     $$('[data-k]',root).forEach(function(el){board.els.set(el.dataset.k,el)});
@@ -1244,7 +1276,7 @@ document.addEventListener('click',function(e){
     if(k==='less'){delete ui.expanded[a.dataset.key];render();return}
     if(k==='add'){var preset={stageId:a.dataset.stage};var g=ui.groupBy,l=a.dataset.lane;if(g==='priority')preset.priority=l;else if(g==='project')preset.projectId=l;else if(g==='assignee')preset.assignee=l;openTask(null,preset);return}
     if(k==='new'){openTask(null);return}
-    if(k==='load-sample'){state=normalize(buildSample());commit();return}
+    if(k==='load-sample'){var keepTitle=state.meta.title;state=normalize(buildSample());state.meta.title=keepTitle||state.meta.title;commit();return}
     if(k==='clear-sample'){
       var snap=JSON.stringify(state);
       // Edited example tasks lose their sample flag on save, so only untouched examples go.
@@ -1337,6 +1369,54 @@ view.addEventListener('drop',function(e){
   e.preventDefault();var id=dragId;dragId=null;dropOn(cell,e.clientY,id);
 });
 view.addEventListener('dragend',function(){dragId=null;clearDrop();$$('.card.dragging').forEach(function(c){c.classList.remove('dragging')});});
+
+/* column resizing: drag a header's right edge; double-click (or Delete) resets; arrow keys nudge. */
+function colBounds(key){return key===LANE_COL?[LANE_MIN,LANE_MAX]:[COL_MIN,COL_MAX]}
+function setColW(key,w){var b=colBounds(key);ui.colW[key]=Math.round(Math.max(b[0],Math.min(b[1],w)));applyCols()}
+var rz=null;
+view.addEventListener('pointerdown',function(e){
+  var h=e.target.closest&&e.target.closest('.col-rz');if(!h||e.button>0)return;
+  e.preventDefault();e.stopPropagation();
+  rz={key:h.dataset.rz,el:h,x0:e.clientX,w0:h.parentElement.getBoundingClientRect().width,pid:e.pointerId};
+  try{h.setPointerCapture(e.pointerId)}catch(x){}
+  h.classList.add('active');document.body.classList.add('col-resizing');
+});
+view.addEventListener('pointermove',function(e){if(rz&&e.pointerId===rz.pid)setColW(rz.key,rz.w0+e.clientX-rz.x0)});
+function endResize(e){
+  if(!rz||(e&&e.pointerId!==rz.pid))return;
+  rz.el.classList.remove('active');document.body.classList.remove('col-resizing');rz=null;savePrefs();
+}
+view.addEventListener('pointerup',endResize);
+view.addEventListener('pointercancel',endResize);
+view.addEventListener('lostpointercapture',endResize);
+view.addEventListener('dblclick',function(e){
+  var h=e.target.closest&&e.target.closest('.col-rz');if(!h)return;
+  delete ui.colW[h.dataset.rz];applyCols();savePrefs();toast('Column width reset');
+});
+view.addEventListener('keydown',function(e){
+  var h=e.target.classList&&e.target.classList.contains('col-rz')?e.target:null;if(!h)return;
+  var key=h.dataset.rz,cur=ui.colW[key]||h.parentElement.getBoundingClientRect().width,step=e.shiftKey?60:20;
+  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setColW(key,cur+(e.key==='ArrowLeft'?-step:step));savePrefs()}
+  else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();delete ui.colW[key];applyCols();savePrefs()}
+});
+
+/* board title: click to rename. Enter or leaving the field saves, Esc cancels, empty restores the default. */
+$('#title-btn').addEventListener('click',function(){
+  if(readOnly||!state)return;
+  var btn=$('#title-btn'),inp=document.createElement('input');
+  inp.id='title-in';inp.className='title-in';inp.type='text';inp.maxLength=120;inp.value=state.meta.title||'';inp.setAttribute('aria-label','Board title');
+  btn.hidden=true;btn.parentNode.appendChild(inp);inp.focus();inp.select();
+  var done=false;
+  function finish(save){
+    if(done)return;done=true;
+    var v=cleanName(inp.value).slice(0,120)||'Lab Task Board';
+    inp.remove();btn.hidden=false;
+    if(save&&v!==state.meta.title){state.meta.title=v;commit()}else syncChrome();
+    btn.focus();
+  }
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();finish(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();finish(false)}});
+  inp.addEventListener('blur',function(){finish(true)});
+});
 
 /* touch drag: press and hold a card for about a third of a second, then drag it.
    A quick swipe still scrolls the board; a tap still opens the card. */

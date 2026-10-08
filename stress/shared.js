@@ -111,6 +111,15 @@ async function newTask(page, title) { await page.click('#btn-new'); await page.f
     log({ test: 'shared:deleteAndUndo', bAfterDelete, bAfterUndo: await cards(b.page), server: titles(S) });
     await a.ctx.close(); await b.ctx.close();
   }
+  // C2. Renaming the board reaches the other person.
+  {
+    const S = makeServer(); await S.seed('board/main', { json: JSON.stringify(v1(['X'])) });
+    const a = await client(S); await settle(a.page, 1000); const b = await client(S); await settle(b.page, 500);
+    await a.page.click('#title-btn'); await a.page.fill('#title-in', 'Shared Lab Board'); await a.page.keyboard.press('Enter');
+    await settle(a.page, 900);
+    log({ test: 'shared:title', bSees: await b.page.textContent('#title-text'), bTab: await b.page.title(), serverTitle: JSON.parse(S.docs.get('board/meta')).title });
+    await a.ctx.close(); await b.ctx.close();
+  }
   // D. One edit writes only what changed.
   {
     const S = makeServer(); await S.seed('board/main', { json: JSON.stringify(v1(Array.from({ length: 300 }, (_, i) => 'Task ' + i))) });
