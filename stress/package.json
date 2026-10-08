@@ -1,0 +1,13 @@
+{
+  "name": "lab-board-stress",
+  "private": true,
+  "description": "Headless stress tests for lab-board.html",
+  "scripts": {
+    "perf": "node perf.js",
+    "robust": "node robust.js",
+    "shared": "node shared.js",
+    "layout": "node giant.js",
+    "all": "node perf.js && node robust.js && node shared.js && node giant.js"
+  },
+  "devDependencies": { "playwright": "^1.56.1" }
+}

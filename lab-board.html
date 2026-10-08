@@ -282,7 +282,7 @@ function buildSample(todayISO){
     ['Design sgRNA library for kinase targets','pr_crispr','st_done','high','Okafor',-28,-14,0,'4 guides per gene, 200 non-targeting controls.'],
     ['Order oligo pool and run synthesis QC','pr_crispr','st_done','medium','Lindqvist',-20,-8,0,''],
     ['Lentivirus packaging and titer','pr_crispr','st_prog','critical','Patel',-6,4,0,'Three 15 cm plates of HEK293T, harvest at 48 h and 72 h.'],
-    ['Chase supplier on delayed Cas9 reagent','pr_crispr','st_todo','critical','Lindqvist',0,-1,0,'Backorder confirmed by the vendor. Ask for a lot from another site.'],
+    ['Chase supplier on delayed Cas9 reagent','pr_crispr','st_todo','critical','Lindqvist',-4,-1,0,'Backorder confirmed by the vendor. Ask for a lot from another site.'],
     ['Transduce HAP1 cells at MOI 0.3','pr_crispr','st_todo','high','Patel',5,9,0,''],
     ['Puromycin selection and day-7 harvest','pr_crispr','st_todo','medium','Tanaka',9,18,0,''],
     ['Library prep for next-generation sequencing','pr_crispr','st_todo','medium','Lindqvist',16,30,0,''],
@@ -316,6 +316,7 @@ if(typeof module!=='undefined') module.exports=buildSample;
 var PRIORITIES=[{key:'critical',label:'Critical',short:'P1'},{key:'high',label:'High',short:'P2'},{key:'medium',label:'Medium',short:'P3'},{key:'low',label:'Low',short:'P4'}];
 var PALETTE=['#0E9F8E','#E0662B','#7A5AF8','#D63B6F','#2D7FF9','#B8860B','#4C9F2F','#6B7A8C'];
 var PREF_KEY='labboard.prefs.v1', LOCAL_KEY='labboard.data.v1';
+var TL_MAX_DAYS=1100;
 var DAY=86400000, MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 var ICON={
   chev:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>',
@@ -328,14 +329,21 @@ function p2(n){return String(n).padStart(2,'0')}
 function uid(p){return p+Math.random().toString(36).slice(2,9)}
 function isoLocal(d){return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())}
 function toDay(s){var a=s.split('-').map(Number);return Math.round(Date.UTC(a[0],a[1]-1,a[2])/DAY)}
+// Real calendar dates in a sane range only: rejects 2026-02-30, 0000-00-00 and 5-digit years.
+var MIN_DATE='1970-01-01', MAX_DATE='2199-12-31';
+function validDate(s){return typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&s>=MIN_DATE&&s<=MAX_DATE&&fromDay(toDay(s))===s}
+function clip(s,n){s=String(s==null?'':s);return s.length>n?s.slice(0,n):s}
+function cleanName(s){return String(s||'').replace(/\s+/g,' ').trim()}
+function has(o,k){return Object.prototype.hasOwnProperty.call(o,k)}
 function fromDay(n){var d=new Date(n*DAY);return d.getUTCFullYear()+'-'+p2(d.getUTCMonth()+1)+'-'+p2(d.getUTCDate())}
-function fmtShort(s){var d=new Date(toDay(s)*DAY);return MONTHS[d.getUTCMonth()]+' '+d.getUTCDate()}
+function fmtShort(s){var d=new Date(toDay(s)*DAY),y=d.getUTCFullYear();return MONTHS[d.getUTCMonth()]+' '+d.getUTCDate()+(y!==new Date(TODAY*DAY).getUTCFullYear()?' '+y:'')}
 var TODAY=toDay(isoLocal(new Date()));
-function initials(n){n=(n||'').trim();if(!n)return '';var w=n.replace(/^(dr|prof)\.?\s+/i,'').split(/\s+/);return (w.length>1?w[0][0]+w[w.length-1][0]:w[0].slice(0,2)).toUpperCase()}
+// Array.from splits by code point so emoji and astral characters are not cut in half.
+function initials(n){n=(n||'').trim();if(!n)return '';var w=n.replace(/^(dr|prof)\.?\s+/i,'').split(/\s+/).map(function(x){return Array.from(x)});return (w.length>1?w[0][0]+w[w.length-1][0]:w[0].slice(0,2).join('')).toUpperCase()}
 
 /* ---------- state ---------- */
 var state=null, storage='pending', readOnly=false, ref=null, loaded=false;
-var lastJson='', saveTimer=null, saving=false, again=false;
+var lastJson='', inflight='', saveTimer=null, saving=false, again=false, retryTimer=null, retryDelay=0, quotaWarned=false;
 var ui=loadPrefs();
 function loadPrefs(){
   var d={view:'board',groupBy:'priority',collapsed:{},f:{project:'',assignee:'',q:'',overdue:false}};
@@ -353,25 +361,34 @@ function normalize(raw){
   if(!raw||typeof raw!=='object') throw new Error('This file is not a board backup.');
   if(!Array.isArray(raw.stages)||!raw.stages.length) throw new Error('The backup has no stages.');
   if(!Array.isArray(raw.tasks)||!Array.isArray(raw.projects)) throw new Error('The backup is missing projects or tasks.');
-  var s=defaultState(), seen={};
-  s.meta=Object.assign(s.meta,raw.meta||{});
-  s.stages=raw.stages.map(function(x,i){var id=String(x.id||uid('st_'));while(seen[id])id=uid('st_');seen[id]=1;return {id:id,name:String(x.name||'Stage '+(i+1)),wip:x.wip>0?Math.floor(x.wip):null,done:!!x.done}});
-  var pseen={};
-  s.projects=raw.projects.map(function(x,i){var id=String(x.id||uid('pr_'));while(pseen[id])id=uid('pr_');pseen[id]=1;var o={id:id,name:String(x.name||'Project '+(i+1)),color:/^#[0-9a-f]{6}$/i.test(x.color)?x.color:PALETTE[i%PALETTE.length]};if(x.sample)o.sample=true;return o});
-  var tseen={}, max=0;
-  s.tasks=raw.tasks.map(function(x,i){
+  var obj=function(x){return x&&typeof x==='object'&&!Array.isArray(x)};
+  var rs=raw.stages.filter(obj);
+  if(!rs.length) throw new Error('The backup has no stages.');
+  // Lookup maps have no prototype, so ids like "constructor" or "toString" are ordinary ids.
+  var s=defaultState(), seen=Object.create(null);
+  var m=obj(raw.meta)?raw.meta:{};
+  s.meta={title:clip(m.title||s.meta.title,120),nextNum:Math.floor(Number(m.nextNum))||1,sample:!!m.sample,
+    lastBackupAt:typeof m.lastBackupAt==='string'?m.lastBackupAt:'',updatedAt:typeof m.updatedAt==='string'?m.updatedAt:''};
+  s.stages=rs.map(function(x,i){var id=String(x.id||uid('st_'));while(seen[id])id=uid('st_');seen[id]=1;return {id:id,name:clip(x.name||'Stage '+(i+1),40),wip:x.wip>0?Math.min(999,Math.floor(x.wip)):null,done:!!x.done}});
+  var pseen=Object.create(null);
+  s.projects=raw.projects.filter(obj).map(function(x,i){var id=String(x.id||uid('pr_'));while(pseen[id])id=uid('pr_');pseen[id]=1;var o={id:id,name:clip(x.name||'Project '+(i+1),60),color:/^#[0-9a-f]{6}$/i.test(x.color)?x.color:PALETTE[i%PALETTE.length]};if(x.sample)o.sample=true;return o});
+  var tseen=Object.create(null), max=0;
+  s.tasks=raw.tasks.filter(obj).map(function(x,i){
     var id=String(x.id||uid('t_'));while(tseen[id])id=uid('t_');tseen[id]=1;
-    var st=s.stages.some(function(g){return g.id===x.stageId})?x.stageId:s.stages[0].id;
-    var t={id:id,ref:String(x.ref||('T-'+String(i+1).padStart(3,'0'))),title:String(x.title||'Untitled task'),desc:String(x.desc||''),
-      projectId:pseen[x.projectId]?x.projectId:'',stageId:st,
-      priority:PRIORITIES.some(function(p){return p.key===x.priority})?x.priority:'medium',assignee:String(x.assignee||''),
-      start:/^\d{4}-\d{2}-\d{2}$/.test(x.start)?x.start:'',due:/^\d{4}-\d{2}-\d{2}$/.test(x.due)?x.due:'',
-      blocked:!!x.blocked,order:typeof x.order==='number'?x.order:(i+1)*10,createdAt:String(x.createdAt||new Date().toISOString()),doneAt:String(x.doneAt||'')};
+    var st=seen[x.stageId]?String(x.stageId):s.stages[0].id;
+    var start=validDate(x.start)?x.start:'',due=validDate(x.due)?x.due:'';
+    if(start&&due&&due<start)start=due;
+    // Length caps keep a corrupt or hostile backup from freezing layout (long unbroken titles are quadratic).
+    var t={id:id,ref:clip(x.ref||('T-'+String(i+1).padStart(3,'0')),20),title:clip(x.title||'Untitled task',300),desc:clip(x.desc,20000),
+      projectId:pseen[x.projectId]?String(x.projectId):'',stageId:st,
+      priority:PRIORITIES.some(function(p){return p.key===x.priority})?x.priority:'medium',assignee:clip(cleanName(x.assignee),60),
+      start:start,due:due,
+      blocked:!!x.blocked,order:typeof x.order==='number'&&isFinite(x.order)?x.order:(i+1)*10,createdAt:String(x.createdAt||new Date().toISOString()),doneAt:String(x.doneAt||'')};
     if(x.sample)t.sample=true;
     var n=parseInt(String(t.ref).replace(/\D/g,''),10); if(n>max)max=n;
     return t;
   });
-  s.meta.nextNum=Math.max(s.meta.nextNum||1,max+1);
+  s.meta.nextNum=Math.max(s.meta.nextNum,max+1);
   return s;
 }
 function stageOf(id){return state.stages.find(function(s){return s.id===id})}
@@ -380,6 +397,8 @@ function isDone(t){var s=stageOf(t.stageId);return !!(s&&s.done)}
 function projColor(id){var p=projectOf(id);return p?p.color:'#6B7A8C'}
 function byOrder(a,b){return a.order-b.order||a.ref.localeCompare(b.ref)}
 function people(){var m={};state.tasks.forEach(function(t){if(t.assignee)m[t.assignee]=1});return Object.keys(m).sort()}
+// "patel", "Patel " and "Patel" are one person: reuse the spelling already on the board.
+function canonPerson(n){n=cleanName(n);if(!n)return '';var lo=n.toLowerCase();return people().find(function(p){return p.toLowerCase()===lo})||n}
 function nextOrder(stageId){var m=0;state.tasks.forEach(function(t){if(t.stageId===stageId&&t.order>m)m=t.order});return m+10}
 function syncDone(t){var s=stageOf(t.stageId);if(s&&s.done){if(!t.doneAt)t.doneAt=new Date().toISOString()}else t.doneAt=''}
 
@@ -398,7 +417,14 @@ function commit(){state.meta.updatedAt=new Date().toISOString();render();schedul
 function scheduleSave(){
   if(readOnly){setStatus('readonly','View only, not saved');return}
   setStatus('saving','Saving');
+  clearTimeout(retryTimer);retryTimer=null;
   clearTimeout(saveTimer);saveTimer=setTimeout(flush,350);
+}
+// Failed shared writes retry with backoff (2s, 4s ... 30s) instead of waiting for the next edit.
+function retryLater(){
+  retryDelay=Math.min(30000,retryDelay?retryDelay*2:2000);
+  clearTimeout(retryTimer);retryTimer=setTimeout(function(){retryTimer=null;flush()},retryDelay);
+  setStatus('error','Not saved, retrying in '+Math.round(retryDelay/1000)+'s');
 }
 async function flush(){
   saveTimer=null;
@@ -408,27 +434,57 @@ async function flush(){
   saving=true;
   try{
     if(storage==='shared'){
+      inflight=json;
       await ref.set({json:json,updatedAt:state.meta.updatedAt});
-      lastJson=json;setStatus('saved','Saved, shared');
+      lastJson=json;retryDelay=0;setStatus('saved','Saved, shared');
     }else{
-      try{localStorage.setItem(LOCAL_KEY,json);setStatus('local','Saved in this browser only')}
-      catch(e){setStatus('error','Could not save')}
+      try{localStorage.setItem(LOCAL_KEY,json);quotaWarned=false;setStatus('local','Saved in this browser only')}
+      catch(e){
+        setStatus('error','Not saved: browser storage full');
+        if(!quotaWarned){quotaWarned=true;toast('This board is too large for browser storage. Download a backup now, changes are not being saved.',8000)}
+      }
     }
   }catch(e){
     var c=e&&e.code;
     if(c==='invalid_argument'){readOnly=true;document.body.classList.add('ro');setStatus('readonly','View only, not saved')}
-    else if(c==='quota_exceeded')setStatus('error','Storage full');
-    else setStatus('error','Not saved, retry by editing');
+    else if(c==='quota_exceeded'){setStatus('error','Storage full');toast('Shared storage is full. Download a backup, changes are not being saved.',8000)}
+    else retryLater();
   }
-  saving=false;
+  saving=false;inflight='';
   if(again){again=false;flush()}
 }
+function hasUnsaved(){return storage==='shared'&&(saving||!!saveTimer||!!retryTimer||JSON.stringify(state)!==lastJson)}
+// Three-way merge at the level of whole tasks, stages, projects and meta: whatever this browser
+// changed since the last synced copy (base) wins, everything else comes from the remote copy.
+function mergeStates(base,local,remote){
+  var canon=function(x){return Array.isArray(x)?'['+x.map(canon).join(',')+']':x&&typeof x==='object'?'{'+Object.keys(x).sort().map(function(k){return JSON.stringify(k)+':'+canon(x[k])}).join(',')+'}':JSON.stringify(x)};
+  var same=function(a,b){return canon(a)===canon(b)};
+  var idx=function(a){var m=Object.create(null);a.forEach(function(x){m[x.id]=x});return m};
+  var b=idx(base.tasks),l=idx(local.tasks),r=idx(remote.tasks),out=[],ids=Object.create(null);
+  local.tasks.concat(remote.tasks).forEach(function(x){ids[x.id]=1});
+  Object.keys(ids).forEach(function(id){
+    var lc=!same(b[id],l[id]);          // changed, added or deleted here
+    var pick=lc?l[id]:r[id];
+    if(pick)out.push(pick);
+  });
+  var m={version:1,tasks:out};
+  ['stages','projects','meta'].forEach(function(k){m[k]=same(base[k],local[k])?remote[k]:local[k]});
+  m.meta=Object.assign({},m.meta,{nextNum:Math.max(local.meta.nextNum||1,remote.meta.nextNum||1)});
+  return m;
+}
 function onRemote(snap){
-  if(saveTimer||saving)return;
   if(!snap.exists){if(!loaded){state=defaultState();loaded=true;setStatus('saved','Saved, shared');render()}return}
   var d=snap.data()||{};
-  if(typeof d.json!=='string'||d.json===lastJson){if(!loaded){state=state||defaultState();loaded=true;render()}return}
-  try{state=normalize(JSON.parse(d.json));lastJson=d.json;loaded=true;
+  // The echo of this browser's own in-flight write is not a remote change.
+  if(typeof d.json!=='string'||d.json===lastJson||d.json===inflight){if(!loaded){state=state||defaultState();loaded=true;render()}return}
+  try{
+    var remote=normalize(JSON.parse(d.json));
+    if(loaded&&hasUnsaved()){
+      // Someone else saved while this browser had unsaved edits: merge instead of dropping either side.
+      var base=lastJson?normalize(JSON.parse(lastJson)):defaultState();
+      state=normalize(mergeStates(base,state,remote));lastJson=d.json;render();scheduleSave();return;
+    }
+    state=remote;lastJson=d.json;loaded=true;
     setStatus(readOnly?'readonly':'saved',readOnly?'View only':'Saved, shared');render()}
   catch(e){setStatus('error','Stored board is unreadable');if(!state){state=defaultState();loaded=true;render()}}
 }
@@ -556,8 +612,9 @@ function applyMove(id,stageId,lane,beforeId){
   syncDone(t);
   var list=state.tasks.filter(function(x){return x.id!==id&&x.stageId===stageId&&(g==='none'||laneKey(x)===laneKey(t))}).sort(byOrder);
   var idx=beforeId?list.findIndex(function(x){return x.id===beforeId}):-1;
-  if(idx<0)t.order=(list.length?list[list.length-1].order:0)+10;
-  else t.order=idx===0?list[0].order-10:(list[idx-1].order+list[idx].order)/2;
+  // Renumber the cell instead of averaging neighbours: averaging runs out of float precision after ~50 drops.
+  list.splice(idx<0?list.length:idx,0,t);
+  list.forEach(function(x,i){x.order=(i+1)*10});
   commit();
 }
 
@@ -582,7 +639,14 @@ function tlSection(p){
   }else{
     var s=Math.min.apply(null,dated.map(function(t){return toDay(t.start&&t.start<=t.due?t.start:t.due)})),e=Math.max.apply(null,dated.map(function(t){return toDay(t.due)}));
     if(TODAY>=s-14&&TODAY<=e+14){s=Math.min(s,TODAY);e=Math.max(e,TODAY)}
-    s-=2;e+=5;var total=e-s+1;
+    s-=2;e+=5;
+    // Cap the strip (about 3 years) so one mistyped year cannot build a multi-million-pixel timeline.
+    var clipped=0;
+    if(e-s+1>TL_MAX_DAYS){
+      s=TODAY>=s&&TODAY<=e?Math.max(s,TODAY-90):s;e=s+TL_MAX_DAYS-1;
+      clipped=dated.filter(function(t){return toDay(t.due)>e||toDay(t.start&&t.start<=t.due?t.start:t.due)<s}).length;
+    }
+    var total=e-s+1;
     var pct=function(n){return (n-s)/total*100};
     var minw=Math.max(560,total*13);
     var axis='',grid='';
@@ -599,13 +663,14 @@ function tlSection(p){
     if(showToday){grid+='<i class="td" style="left:'+pct(TODAY+0.5).toFixed(3)+'%"></i>';axis+='<span class="tdy" style="left:'+pct(TODAY+0.5).toFixed(3)+'%">Today</span>'}
     h+='<div class="tl-scroll"><div class="tl" style="min-width:calc(var(--lab-w) + '+minw+'px)"><div class="tl-axis"><div></div><div class="pl">'+axis+'</div></div><div class="tl-rows"><div class="tl-grid">'+grid+'</div>';
     dated.forEach(function(t){
-      var sd=toDay(t.start&&t.start<=t.due?t.start:t.due),ed=toDay(t.due),left=pct(sd),w=(ed-sd+1)/total*100;
+      var sd=Math.max(s,Math.min(e,toDay(t.start&&t.start<=t.due?t.start:t.due))),ed=Math.max(sd,Math.min(e,toDay(t.due))),left=pct(sd),w=(ed-sd+1)/total*100;
       var done=isDone(t),late=!done&&ed<TODAY,st=stageOf(t.stageId);
       h+='<div class="tl-row"><button class="lb" type="button" data-edit="'+esc(t.id)+'" title="'+esc(t.title)+'"><span class="ref">'+esc(t.ref)+'</span><span class="t">'+esc(t.title)+'</span></button>'
         +'<div class="pl"><button type="button" class="bar'+(done?' done':'')+(late?' late':'')+(t.blocked?' blk':'')+'" data-edit="'+esc(t.id)+'" style="left:'+left.toFixed(3)+'%;width:'+w.toFixed(3)+'%" aria-label="'+esc(t.title+', '+(st?st.name:'')+', due '+t.due)+'"></button>'
         +'<span class="note'+(late?' late':'')+'" style="left:calc('+(left+w).toFixed(3)+'% + 7px)">'+fmtShort(t.due)+(st?' · '+esc(st.name):'')+'</span></div></div>';
     });
     h+='</div></div></div>';
+    if(clipped)h+='<div class="tl-none">'+clipped+' task'+(clipped===1?' falls':'s fall')+' outside the 3-year window shown and '+(clipped===1?'is':'are')+' pinned to its edge. Check for a mistyped year.</div>';
   }
   if(undated.length){
     h+='<div class="tl-none"><span>No deadline:</span>'+undated.map(function(t){return '<button type="button" data-edit="'+esc(t.id)+'">'+esc(t.ref)+' '+esc(t.title)+'</button>'}).join('')+'</div>';
@@ -636,14 +701,24 @@ function openModal(o){
   $('#modal').classList.toggle('wide',!!o.wide);
   $('#overlay').hidden=false;
   if(o.mount)o.mount();
+  o.snap=formSnap();
   var f=$('#modal-body input:not([type=hidden]),#modal-body textarea,#modal-body select');if(f&&!o.noFocus)f.focus();
+}
+function formSnap(){return $$('#modal input,#modal select,#modal textarea,#modal [aria-pressed]').map(function(e){return e.type==='checkbox'?e.checked:e.hasAttribute('aria-pressed')?e.getAttribute('aria-pressed'):e.value}).join('\u0001')}
+// Escape and backdrop clicks ask twice when the dialog has edits; Cancel and the close button still close at once.
+function requestClose(){
+  if(cur&&!readOnly&&!cur.armedClose&&formSnap()!==cur.snap){
+    var c=cur;c.armedClose=true;toast('Unsaved changes. Press Esc or click outside again to discard them.',4000);
+    setTimeout(function(){c.armedClose=false},4000);return;
+  }
+  closeModal();
 }
 function closeModal(){
   $('#overlay').hidden=true;$('#modal-body').innerHTML='';$('#modal-foot').innerHTML='';cur=null;
   if(lastFocus&&lastFocus.focus)try{lastFocus.focus()}catch(e){}
 }
 var toastT=null;
-function toast(msg){var t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},2800)}
+function toast(msg,ms){var t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},ms||2800)}
 
 /* ---------- task dialog ---------- */
 function openTask(id,preset){
@@ -659,8 +734,8 @@ function openTask(id,preset){
     +'<label class="fld"><span>Stage</span><select id="f-stage">'+state.stages.map(function(s){return opt(s.id,s.name,s.id===d.stageId)}).join('')+'</select></label>'
     +'<label class="fld"><span>Priority</span><select id="f-priority">'+PRIORITIES.map(function(p){return opt(p.key,p.short+' '+p.label,p.key===d.priority)}).join('')+'</select></label>'
     +'<label class="fld"><span>Assignee</span><input id="f-assignee" type="text" list="people" maxlength="60" value="'+esc(d.assignee)+'"><datalist id="people">'+people().map(function(n){return '<option value="'+esc(n)+'">'}).join('')+'</datalist></label>'
-    +'<label class="fld"><span>Start date</span><input id="f-start" type="date" value="'+esc(d.start)+'"></label>'
-    +'<label class="fld"><span>Deadline</span><input id="f-due" type="date" value="'+esc(d.due)+'"></label>'
+    +'<label class="fld"><span>Start date</span><input id="f-start" type="date" min="'+MIN_DATE+'" max="'+MAX_DATE+'" value="'+esc(d.start)+'"></label>'
+    +'<label class="fld"><span>Deadline</span><input id="f-due" type="date" min="'+MIN_DATE+'" max="'+MAX_DATE+'" value="'+esc(d.due)+'"></label>'
     +'<label class="chk span2"><input id="f-blocked" type="checkbox"'+(d.blocked?' checked':'')+'> Blocked (waiting on a reagent, instrument time or an approval)</label>'
     +'<p class="form-err" id="f-err" role="alert" hidden></p></fieldset></form>';
   var foot=readOnly?'<span class="sp"></span><button class="btn" type="button" data-close>Close</button>'
@@ -682,12 +757,21 @@ function openTask(id,preset){
     var err=function(m){var e=$('#f-err');e.textContent=m;e.hidden=false};
     var title=$('#f-title').value.trim(),start=$('#f-start').value,due=$('#f-due').value;
     if(!title)return err('Give the task a title.');
+    if(start&&!validDate(start))return err('The start date is not a valid date between 1970 and 2199.');
+    if(due&&!validDate(due))return err('The deadline is not a valid date between 1970 and 2199. Check the year.');
     if(due&&start&&due<start)return err('The deadline is before the start date.');
-    var vals={title:title,desc:$('#f-desc').value.trim(),projectId:$('#f-project').value,stageId:$('#f-stage').value,priority:$('#f-priority').value,assignee:$('#f-assignee').value.trim(),start:start||fromDay(TODAY),due:due,blocked:$('#f-blocked').checked};
-    if(ex){
-      var t=state.tasks.find(function(x){return x.id===ex.id});
+    // A board that changed underneath the dialog (shared editing) may have lost the chosen stage or project.
+    var stageId=stageOf($('#f-stage').value)?$('#f-stage').value:state.stages[0].id,projectId=projectOf($('#f-project').value)?$('#f-project').value:'';
+    var vals={title:title,desc:$('#f-desc').value.trim(),projectId:projectId,stageId:stageId,priority:$('#f-priority').value,assignee:canonPerson($('#f-assignee').value),start:start||fromDay(TODAY),due:due,blocked:$('#f-blocked').checked};
+    var t=ex&&state.tasks.find(function(x){return x.id===ex.id});
+    if(ex&&!t){
+      // Deleted by someone else while this dialog was open: keep the user's work as a restored task.
+      t=Object.assign({},ex,vals,{order:nextOrder(vals.stageId)});delete t.sample;state.tasks.push(t);syncDone(t);
+      commit();closeModal();toast(ex.ref+' was deleted by someone else. Your version was restored.',5000);return;
+    }
+    if(t){
       var moved=t.stageId!==vals.stageId;
-      Object.assign(t,vals);if(moved)t.order=nextOrder(vals.stageId);syncDone(t);
+      Object.assign(t,vals);delete t.sample;if(moved)t.order=nextOrder(vals.stageId);syncDone(t);
     }else{
       var n=Object.assign({id:uid('t_'),ref:'T-'+String(state.meta.nextNum++).padStart(3,'0'),createdAt:new Date().toISOString(),doneAt:'',order:nextOrder(vals.stageId)},vals);
       state.tasks.push(n);syncDone(n);
@@ -754,7 +838,7 @@ function openProjects(){
       if(name==='del'){if(confirm!==i){confirm=i;paint();return}draft.splice(i,1);confirm=-1;paint();return}
       if(name==='apply'){
         if(draft.some(function(p){return !p.name.trim()})){var e=$('#p-err');e.textContent='Every project needs a name.';e.hidden=false;return}
-        draft.forEach(function(p){p.name=p.name.trim()});
+        draft.forEach(function(p){p.name=p.name.trim();var o=projectOf(p.id);if(p.sample&&o&&(o.name!==p.name||o.color!==p.color))delete p.sample});
         var keep={};draft.forEach(function(p){keep[p.id]=1});
         state.tasks=state.tasks.filter(function(t){return !t.projectId||keep[t.projectId]});
         state.projects=draft;commit();closeModal();
@@ -766,7 +850,8 @@ function openProjects(){
 function backupJson(){return JSON.stringify(state,null,2)}
 function csvText(){
   var cols=['ref','title','project','stage','priority','assignee','start','due','blocked','created','completed','notes'];
-  var q=function(v){v=String(v==null?'':v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  // Cells starting with = + - @ tab or CR run as formulas in Excel and Sheets; a leading ' keeps them as text.
+  var q=function(v){v=String(v==null?'':v);if(/^[=+\-@\t\r]/.test(v))v="'"+v;return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   var rows=state.tasks.slice().sort(byOrder).map(function(t){var p=projectOf(t.projectId),s=stageOf(t.stageId);
     return [t.ref,t.title,p?p.name:'',s?s.name:'',t.priority,t.assignee,t.start,t.due,t.blocked?'yes':'no',t.createdAt,t.doneAt,t.desc].map(q).join(',')});
   return '﻿'+cols.join(',')+'\r\n'+rows.join('\r\n')+'\r\n';
@@ -827,7 +912,7 @@ function openBackup(){
 document.addEventListener('click',function(e){
   var close=e.target.closest('[data-close]');if(close&&!$('#overlay').hidden){closeModal();return}
   var m=e.target.closest('[data-m]');if(m&&cur&&cur.action){cur.action(m.dataset.m,m,e);return}
-  if(e.target===$('#overlay')){closeModal();return}
+  if(e.target===$('#overlay')){if(downOnOverlay)requestClose();return}
   var a=e.target.closest('[data-act]');
   if(a){
     var k=a.dataset.act;
@@ -836,19 +921,43 @@ document.addEventListener('click',function(e){
     if(k==='new'){openTask(null);return}
     if(k==='load-sample'){state=normalize(buildSample());commit();return}
     if(k==='clear-sample'){
-      var sp={};state.projects.forEach(function(p){if(p.sample)sp[p.id]=1});
+      // Edited example tasks lose their sample flag on save, so only untouched examples go.
+      // An example project that now holds the user's own tasks is kept.
       state.tasks=state.tasks.filter(function(t){return !t.sample});
-      state.tasks.forEach(function(t){if(sp[t.projectId])t.projectId=''});
-      state.projects=state.projects.filter(function(p){return !p.sample});
-      state.meta.sample=false;if(!state.tasks.length)state.meta.nextNum=1;commit();toast('Example data removed');return;
+      var used={};state.tasks.forEach(function(t){used[t.projectId]=1});
+      state.projects=state.projects.filter(function(p){return !p.sample||used[p.id]});
+      state.projects.forEach(function(p){delete p.sample});
+      var kept=state.tasks.length;
+      state.meta.sample=false;if(!kept)state.meta.nextNum=1;commit();toast(kept?'Example data removed. '+kept+' task'+(kept===1?'':'s')+' you added or edited were kept.':'Example data removed');return;
     }
   }
   var ed=e.target.closest('[data-edit]');if(ed){openTask(ed.dataset.edit);return}
   var c=e.target.closest('.card');if(c){openTask(c.dataset.id)}
 });
+// A text selection that starts in a field and ends on the backdrop must not close the dialog.
+var downOnOverlay=false;
+document.addEventListener('mousedown',function(e){downOnOverlay=e.target===$('#overlay')});
 document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'&&!$('#overlay').hidden){closeModal();return}
-  if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('card')){openTask(e.target.dataset.id)}
+  var open=!$('#overlay').hidden;
+  if(e.key==='Escape'&&open){requestClose();return}
+  if(e.key==='Tab'&&open){
+    var f=$$('#modal button:not([disabled]),#modal input:not([disabled]),#modal select:not([disabled]),#modal textarea:not([disabled]),#modal summary').filter(function(x){return x.offsetParent!==null});
+    if(!f.length)return;
+    var first=f[0],last=f[f.length-1],a=document.activeElement;
+    if(!$('#modal').contains(a)||(e.shiftKey&&a===first)||(!e.shiftKey&&a===last)){e.preventDefault();(e.shiftKey?last:first).focus()}
+    return;
+  }
+  if(open)return;
+  var c=e.target.classList&&e.target.classList.contains('card')?e.target:null;
+  if(c&&e.key==='Enter'){openTask(c.dataset.id);return}
+  // Keyboard alternative to drag and drop: Alt+Left/Right moves a card to the previous or next stage.
+  if(c&&e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')&&!readOnly){
+    var t=state.tasks.find(function(x){return x.id===c.dataset.id}),i=state.stages.findIndex(function(s){return s.id===t.stageId}),j=i+(e.key==='ArrowLeft'?-1:1);
+    if(j<0||j>=state.stages.length)return;
+    e.preventDefault();applyMove(t.id,state.stages[j].id,laneKey(t),null);
+    var moved=$('.card[data-id="'+(window.CSS&&CSS.escape?CSS.escape(t.id):t.id)+'"]');if(moved)moved.focus();
+    toast('Moved to '+state.stages[j].name);
+  }
 });
 $('#btn-new').addEventListener('click',function(){openTask(null)});
 $('#btn-projects').addEventListener('click',openProjects);
@@ -858,7 +967,9 @@ $$('.tabs button').forEach(function(b){b.addEventListener('click',function(){ui.
 $('#grp').addEventListener('change',function(e){ui.groupBy=e.target.value;savePrefs();render()});
 $('#flt-project').addEventListener('change',function(e){ui.f.project=e.target.value;render()});
 $('#flt-assignee').addEventListener('change',function(e){ui.f.assignee=e.target.value;render()});
-$('#flt-q').addEventListener('input',function(e){ui.f.q=e.target.value.trim();render()});
+// Debounced: every keystroke rebuilds the whole board, which costs 150-600 ms at 3,000-10,000 tasks.
+var qTimer=null;
+$('#flt-q').addEventListener('input',function(e){clearTimeout(qTimer);qTimer=setTimeout(function(){ui.f.q=e.target.value.trim();render()},state&&state.tasks.length>500?200:0)});
 $('#flt-overdue').addEventListener('click',function(){ui.f.overdue=!ui.f.overdue;render()});
 $('#flt-clear').addEventListener('click',function(){ui.f={project:'',assignee:'',q:'',overdue:false};$('#flt-q').value='';render()});
 
@@ -889,6 +1000,11 @@ view.addEventListener('drop',function(e){
   applyMove(id,cell.dataset.stage,cell.dataset.lane,after?after.dataset.id:null);
 });
 view.addEventListener('dragend',function(){dragId=null;clearDrop();$$('.card.dragging').forEach(function(c){c.classList.remove('dragging')});});
+
+// TODAY drives overdue badges and stats; keep it current when the tab stays open past midnight.
+function refreshToday(){var t=toDay(isoLocal(new Date()));if(t!==TODAY){TODAY=t;if($('#overlay').hidden)render()}}
+setInterval(refreshToday,60000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshToday()});
 
 boot();
 })();
