@@ -7,7 +7,10 @@
     "robust": "node robust.js",
     "shared": "node shared.js",
     "layout": "node giant.js",
-    "all": "node perf.js && node robust.js && node shared.js && node giant.js"
+    "all": "node perf.js && node robust.js && node shared.js && node features.js && node giant.js",
+    "features": "node features.js"
   },
-  "devDependencies": { "playwright": "^1.56.1" }
+  "devDependencies": {
+    "playwright": "^1.56.1"
+  }
 }

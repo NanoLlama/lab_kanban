@@ -3,7 +3,7 @@
 Target: `lab-board.html` (the single-file board: Board and Timelines views, local or shared storage).
 Method: headless Chromium (Playwright) drove the real page. Tests seeded data, used the real UI (file input, dialogs, drag events, keyboard), and mocked `window.claude` for the shared-storage and download paths. The harness is in [`stress/`](stress/) and can be re-run against any copy of the file.
 
-The first commit on this branch is the file exactly as provided; the second applies the fixes below, so `git diff HEAD~1 -- lab-board.html` shows every change.
+The first commit on this branch is the file exactly as provided. Round 1 fixes are in the second commit and the round 2 work in the third, so `git log -p -- lab-board.html` walks through every change.
 
 ## Summary
 
@@ -78,23 +78,76 @@ A real lab board (hundreds of tasks) is comfortably fast. Typing starts to lag p
 - **Timeline**: window capped at 1,100 days (anchored 90 days before today when today is in range) with out-of-range bars pinned to the edge plus a note; dates outside the current year show the year.
 - **Misc**: `TODAY` refreshed every minute and on `visibilitychange`; CSV formula escaping; code-point-safe initials; corrected sample task dates; louder storage-full toast.
 
-## Recommendations not implemented (bigger design choices)
+## Round 2: the recommendations, implemented
 
-1. **Store tasks as separate shared documents** (e.g. `board/main` for stages, projects and meta, plus `tasks/{id}`) instead of one JSON blob. The merge above closes the data-loss window, but whole-board writes still grow with board size: 3.2 MB per save at 10k tasks. Per-task docs make each save tiny and conflicts field-local.
-2. **Local mode beyond about 5 MB**: move local storage to IndexedDB (hundreds of MB) and keep localStorage only for prefs. Until then, the new toast tells the user to back up.
-3. **Touch drag**: HTML5 drag-and-drop does not fire on iOS Safari or most mobile browsers. On phones, the only way to move a card is the Stage field in the dialog. A small pointer-events drag (long-press to pick up) would fix this.
-4. **Rendering at scale**: render only changed cells, or virtualize long cells, if boards are expected to pass about 3k tasks. Collapsed lanes already help.
-5. **Deleting a project deletes its tasks.** The button says so, but a "move tasks to No project" option (the default in most tools) plus a one-step **Undo** toast for deletes would remove the riskiest click in the app.
-6. **`<!doctype html>`**: the file has none, so opened directly it renders in quirks mode (`document.compatMode = BackCompat`). If it is only ever published as an Artifact, the host adds the document skeleton and this is moot. If it is also shared as a raw file, add the doctype line at the top.
-7. **Stage removal text** counts tasks against the saved stages, and stage moves made before Apply can change which stage receives them. Consider showing the destination name from the draft at Apply time.
+All seven recommendations from round 1 are now built, plus a larger color system. Every item is covered by a test in `stress/` (results below are from the final file).
+
+### 1. Shared storage: one document per task
+A finding while building this: the shared store caps each document at **256 KiB**. The original saved the whole board as one document, so a shared board stopped saving at roughly **800 tasks** (less with long notes).
+
+- Layout: `board/meta` (stages, projects, settings, saved colors) plus `tasks/{id}` (one task each).
+- **Upgrade is automatic.** The first client to open an old board copies `board/main` into the new layout and leaves the old document untouched as a fallback.
+- Saves write only what changed. Existing documents get an `update()` holding just the changed fields, so two people editing different fields of one task at the same moment both keep their change. New tasks and deletes are written individually, 6 at a time, with progress shown in the status.
+- Incoming changes are merged per task and per field against the last server copy. Duplicate task numbers (two people creating a task at the same instant) are renumbered the same way on every client.
+- Subscriptions reconnect by themselves after a dropped connection, and deletions that happened during the gap are detected.
+
+| Shared test (2 live browser clients + mock store) | Result |
+|---|---|
+| Open a board saved by the old version | upgraded: 3/3 tasks, settings doc created, old doc kept |
+| A renames a task while B changes its priority, both save at once | server: "Renamed by A" **and** "critical" |
+| A and B each add a task at the same moment | both kept, refs unique (T-001, T-002, T-003) |
+| A deletes a task, then presses Undo | gone for B, then back for B |
+| Writes for one card edit on a 300-task board | **1** document (was the whole board) |
+| 2,000-task board (1.3 MB) | saved; largest document 0.7 KB |
+| Write fails once | retried after 2 s, saved |
+
+### 2. Local storage: IndexedDB
+Boards saved in this browser now live in IndexedDB (no practical size limit), with localStorage used only when IndexedDB is unavailable. Existing localStorage boards move over on first load. The 6.3 MB board that could not be saved in round 1 now saves and reloads all 800 tasks.
+
+### 3. Touch drag
+Press and hold a card for about a third of a second, then drag it. Near the edge, the board scrolls sideways and the page scrolls up or down. A quick swipe still scrolls and a tap still opens the card. The tested sequence (phone viewport, real touch events): swipe does not move the card → tap opens it → hold lifts it → drag across to an off-screen column → it lands there, with no stray dialog or ghost left behind. Keyboard users still have **Alt+←/→**.
+
+### 4. Rendering at scale
+- The board remembers the markup of every header and cell. When the layout is unchanged, only the cells whose content changed are replaced, so an edit or a drop touches one or two cells, and keyboard focus survives.
+- Each cell shows its first 40 cards, then a **Show N more** button. A drop below the last visible card lands where expected, not at the very end.
+- Tasks are bucketed in one pass instead of one pass per lane, stage and header. Stage and project lookups use indexes.
+- Each project's timeline shows its first 150 rows, then **Show all**.
+
+| Tasks | Load (old → new) | Page elements | Save one card | Filter toggle | Regroup |
+|---:|---|---|---|---|---|
+| 1,000 | 0.37 → 0.22 s | 11.2k → 7.3k | 192 → 14 ms | 20 → 16 ms | 42 → 30 ms |
+| 3,000 | 0.65 → 0.21 s | 33.3k → 7.3k | 415 → 24 ms | 126 → 22 ms | 101 → 54 ms |
+| 5,000 | 0.91 → 0.26 s | 55.4k → 7.3k | 605 → 20 ms | 96 → 26 ms | 181 → 58 ms |
+| 10,000 | 1.92 → 0.33 s | 110.7k → 7.3k | **3,548 → 40 ms** | 203 → 38 ms | 312 → 67 ms |
+
+### 5. Safer deletes, with Undo
+- **Deleting a project** asks what happens to its tasks: *Keep, move to No project* or *Delete them too*. The dialog lists what Apply will do.
+- **Undo** (10 seconds, in the toast) after deleting a task, deleting projects, removing stages, removing example data, and restoring a backup. In shared mode, Undo is written back to everyone like any other change.
+
+### 6. `<!doctype html>`
+Added, so the file renders in standards mode when opened directly (`compatMode: CSS1Compat`). A host that wraps the page is unaffected.
+
+### 7. Stage removal
+Removing a stage now asks where its tasks should go (a dropdown of the other stages) and lists the plan under the rows ("Removing Review: its tasks go to Doing"). Chains are followed: a stage that receives tasks and is then removed passes them on. The task count includes tasks redirected into a stage.
+
+### New: color palette and custom colors
+- **24-color palette** (the original 8 first, so existing boards keep their colors), chosen to stay distinct and readable in light and dark themes.
+- **Custom**: a native color picker (live preview while dragging) plus a hex field that accepts `#1a2b3c`, `1a2b3c` or `#abc`.
+- **Saved colors**: any custom color used on the board is offered in every picker, for everyone on a shared board (up to 16, newest first).
+- **Per-card color**: a task can override its project color (*Card color* in the task dialog, with *Use project color* to go back). The card tint and its timeline bar use the override, while the project chip keeps the project color, so cards still read by project. The CSV export gains a `color` column.
+
+## Known limits
+- Shared mode assumes a collection subscription delivers every task. The store documents queries as suited to "hundreds to low thousands" of documents and caps a database at 25,000. Past a few thousand tasks, archive Done tasks into a backup.
+- Two people saving the **same field** of the same task at the same instant: the last write wins (there are no transactions).
+- Undo restores the whole board as it was before the action. A change someone else made during those 10 seconds would be rolled back too.
 
 ## Re-running the harness
 
 ```bash
 cd stress
 npm install            # installs playwright (Chromium must be available)
-npm run all            # perf, robustness, shared-sync, long-title layout
+npm run all            # perf, robustness, shared-sync (2 clients), features, long-title layout
 LAB_BOARD=/path/to/other-copy.html node robust.js   # test a different copy
 ```
 
-Each test prints one JSON line. `perf.js` takes a few minutes at 10k tasks. On the original file, `robust.js` stalls on the 1 MB-title import, which is finding 7.
+Each test prints one JSON line. `perf.js` takes a few minutes at 10k tasks (`SIZES=100,1000 node perf.js` for a quick run). On the original file, `robust.js` stalls on the 1 MB-title import, which is finding 7.

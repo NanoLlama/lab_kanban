@@ -209,7 +209,7 @@ async function restore(page, text) {
     await page.waitForTimeout(800);
     const st = await L.status(page);
     await page.reload(); await page.waitForTimeout(400);
-    const afterReload = await page.$$eval('.card', (c) => c.length);
+    const afterReload = await page.$$eval('.stage-head .count', (c) => c.reduce((s, e) => s + +e.textContent, 0));
     log({ test: 'storage:quota', jsonMB: +(JSON.stringify(data).length / 1048576).toFixed(1), statusAfterRestore: st, cardsAfterReload: afterReload, expected: 800 });
     await ctx.close();
   }
@@ -219,7 +219,6 @@ async function restore(page, text) {
     const { page, ctx } = await L.open({ data: L.genBoard(30), viewport: { width: 375, height: 800 } });
     const r = await page.evaluate(() => ({
       pageOverflowsX: document.documentElement.scrollWidth > window.innerWidth,
-      touchHandlers: ['touchstart', 'pointerdown'].some((ev) => typeof document.getElementById('view')['on' + ev] === 'function'),
       doctype: !!document.doctype, compatMode: document.compatMode,
     }));
     log({ test: 'mobile', ...r });
