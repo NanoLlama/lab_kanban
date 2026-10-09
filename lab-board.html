@@ -91,6 +91,7 @@ h1,h2,h3,h4{margin:0}
 .brow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
 .bname{font-weight:600;min-width:0;overflow-wrap:anywhere}
 .brow .sp,.arow .sp{flex:1}
+.trash-h{margin:18px 0 2px}
 .nb{display:flex;flex-direction:column;gap:10px}
 .nb-mode{display:flex;flex-direction:column;gap:7px}
 .nb-mode .chk{align-items:flex-start;flex-wrap:wrap}
@@ -603,7 +604,7 @@ function idbPut(k,v){return idbTx('readwrite',function(s){return s.put(v,k)})}
 async function flushLocal(){
   var json=JSON.stringify(state);
   try{
-    await localWrite(curBoard,json);
+    await localWrite(curBoard,json);ping('board');
     quotaWarned=false;setStatus('local','Saved in this browser only');
   }catch(e){
     setStatus('error','Not saved: browser storage full');
@@ -769,6 +770,8 @@ async function boot(){
   }
   pickInitialBoard();
   await openBoardData(curBoard);
+  askPersist();
+  setTimeout(function(){purgeExpired()},2500);
 }
 
 /* ---------- boards: separate boards, open side by side as tabs ----------
@@ -777,7 +780,7 @@ async function boot(){
    Shared: the first board keeps its original paths (board/meta, tasks/*); others live under
    boards/<id> and boards/<id>/tasks/*; boardlist/<id> lists every board for everyone. */
 var MAIN='main', REG_KEY='labboard.boards.v1';
-var curBoard=MAIN, boards=[], deletedMain=false, regUnsub=null, pendingInit=null, switching=false, booted=false;
+var curBoard=MAIN, boards=[], trash=[], tombs=[], TRASH_DAYS=30, regUnsub=null, pendingInit=null, switching=false, booted=false;
 useBoardPrefs(MAIN);
 function boardEntry(id){return boards.find(function(b){return b.id===id})}
 function boardTitle(id){if(id===curBoard&&state&&loaded)return state.meta.title||'Lab Task Board';var b=boardEntry(id);return b&&b.title||'Untitled board'}
@@ -796,13 +799,21 @@ async function localRead(id){
 }
 async function localWrite(id,json){if(idb)await idbPut(dataKey(id),json);else localStorage.setItem(lsKey(id),json)}
 async function localRemove(id){try{if(idb)await idbTx('readwrite',function(s){return s.delete(dataKey(id))})}catch(e){}try{localStorage.removeItem(lsKey(id))}catch(e){}}
+// Deleted boards go to a recycle bin (trash) for TRASH_DAYS before their data is erased.
+// A purged first board leaves a tombstone so it is not re-created as an empty board.
 function setBoards(list){
-  var seen=Object.create(null),out=[];list=Array.isArray(list)?list:[];
-  deletedMain=list.some(function(b){return isObj(b)&&b.id===MAIN&&b.deleted});
-  list.forEach(function(b){if(isObj(b)&&!b.deleted&&okDocId(String(b.id))&&!seen[b.id]){seen[b.id]=1;out.push({id:String(b.id),title:clip(cleanName(b.title)||'Untitled board',120),created:String(b.created||'')})}});
-  if(!seen[MAIN]&&(!deletedMain||!out.length))out.push({id:MAIN,title:'Lab Task Board',created:''});
+  var seen=Object.create(null),out=[],tr=[],tb=[];list=Array.isArray(list)?list:[];
+  list.forEach(function(b){
+    if(!isObj(b)||!okDocId(String(b.id))||seen[b.id])return;seen[b.id]=1;
+    var e={id:String(b.id),title:clip(cleanName(b.title)||'Untitled board',120),created:String(b.created||'')};
+    if(b.purged)tb.push(e.id);else if(b.deleted){e.deletedAt=String(b.deletedAt||'');tr.push(e)}else out.push(e);
+  });
+  if(!seen[MAIN])out.push({id:MAIN,title:'Lab Task Board',created:''});
+  // Never zero boards: bring back the most recently deleted one (its data is still there), else start fresh.
+  if(!out.length){if(tr.length)out.push(tr.shift());else{out.push({id:MAIN,title:'Lab Task Board',created:''});tb=tb.filter(function(x){return x!==MAIN})}}
   out.sort(function(a,b){return (a.created||'0')<(b.created||'0')?-1:(a.created||'0')>(b.created||'0')?1:0});
-  boards=out;
+  tr.sort(function(a,b){return (b.deletedAt||'').localeCompare(a.deletedAt||'')});
+  boards=out;trash=tr;tombs=tb;
 }
 async function loadRegistryLocal(){
   var raw=null;try{if(idb)raw=await idbGet('boards')}catch(e){}
@@ -812,18 +823,20 @@ async function loadRegistryLocal(){
 }
 async function saveRegistry(){
   if(storage!=='local'||readOnly)return;
-  var j=JSON.stringify(boards.concat(deletedMain&&!boardEntry(MAIN)?[{id:MAIN,deleted:true}]:[]));
+  var j=JSON.stringify(boards.concat(trash.map(function(t){return Object.assign({deleted:true},t)}),tombs.map(function(id){return {id:id,deleted:true,purged:true}})));
   try{if(idb)await idbPut('boards',j);else localStorage.setItem(REG_KEY,j)}catch(e){}
+  ping('registry');
 }
-function writeEntry(b,deleted){
+function writeEntry(b,deleted,purged){
   if(storage!=='shared'||readOnly||!b)return Promise.resolve();
-  return dbRef.collection('boardlist').doc(b.id).set({title:b.title,created:b.created||'',deleted:!!deleted}).catch(function(){});
+  var d={title:b.title,created:b.created||'',deleted:!!deleted};if(deleted)d.deletedAt=b.deletedAt||new Date().toISOString();if(purged)d.purged=true;
+  return dbRef.collection('boardlist').doc(b.id).set(d);
 }
 function subscribeRegistry(){
   return new Promise(function(res){
     var first=true,done=function(){if(first){first=false;res()}};
     regUnsub=dbRef.collection('boardlist').onSnapshot(function(qs){
-      setBoards(qs.docs.map(function(d){var x=d.data()||{};return {id:d.id,title:x.title,created:x.created,deleted:!!x.deleted}}));
+      setBoards(qs.docs.map(function(d){var x=d.data()||{};return {id:d.id,title:x.title,created:x.created,deleted:!!x.deleted,deletedAt:x.deletedAt,purged:!!x.purged}}));
       onRegistryChange();done();
     },done);
     setTimeout(done,4000);
@@ -834,7 +847,7 @@ function onRegistryChange(){
   var gone=ui.open.filter(function(id){return !boardEntry(id)});
   if(gone.length){
     ui.open=ui.open.filter(function(id){return !!boardEntry(id)});if(!ui.open.length)ui.open=[boards[0].id];savePrefs();
-    if(gone.indexOf(curBoard)>=0){toast('This board was deleted by someone else.',5000);switchBoard(ui.open[0],true);return}
+    if(gone.indexOf(curBoard)>=0){toast('This board was deleted elsewhere. It can be restored from + Boards → Recently deleted.',6000);switchBoard(ui.open[0],true);return}
   }
   renderTabs();
   if(cur&&cur.repaintBoards)cur.repaintBoards();
@@ -889,37 +902,111 @@ async function switchBoard(id,force){
   switching=false;
   return true;
 }
-async function createBoard(title,init){
+// Reads any board's data (used for backups and card counts of boards that are not open).
+async function readBoardState(id){
+  if(id===curBoard&&state&&loaded)return state;
+  if(storage==='local'){var raw=await localRead(id);return raw?normalize(JSON.parse(raw)):null}
+  var r=refsFor(id),m=await r.meta.get(),qs=await r.tasks.get();
+  if(!m.exists&&!qs.size){
+    if(r.legacy){var l=await r.legacy.get(),d=l.exists?l.data():null;if(d&&typeof d.json==='string')return normalize(JSON.parse(d.json))}
+    return null;
+  }
+  var st=m.exists?normBoardMeta(fromMetaDoc(m.data())):defaultState();
+  st.tasks=qs.docs.map(function(d){return normTask(Object.assign({},d.data(),{id:d.id}),0,LENIENT)});
+  return st;
+}
+async function writeBoardData(id,st){
+  if(storage==='local'){await localWrite(id,JSON.stringify(st));return}
+  var r=refsFor(id);await r.meta.set(clone(metaOf(st)));
+  await runPool(st.tasks.map(function(t){return function(){return r.tasks.doc(t.id).set(clone(t))}}),6,function(){});
+}
+async function purgeBoardData(id){
+  if(storage==='local'){await localRemove(id);return}
+  var r=refsFor(id);
+  try{var qs=await r.tasks.get();await runPool(qs.docs.map(function(d){return function(){return r.tasks.doc(d.id).delete()}}),6,function(){})}catch(e){}
+  try{await r.meta.delete()}catch(e){}
+  if(r.legacy)try{await r.legacy.delete()}catch(e){}
+}
+// The new board is fully written before anything else changes, so a failure leaves both boards as they were.
+// beforeSwitch runs after that write (used to take moved cards off the old board).
+async function createBoard(title,init,beforeSwitch){
   var b={id:uid('b_'),title:clip(cleanName(title)||'Untitled board',120),created:new Date().toISOString()};
-  init=init||defaultState();init.meta=Object.assign({},init.meta,{title:b.title,sample:false,lastBackupAt:''});
-  boards.push(b);await saveRegistry();writeEntry(b);
-  pendingInit={id:b.id,state:init};
+  init=normalize(init||defaultState());init.meta.title=b.title;init.meta.sample=false;init.meta.lastBackupAt='';
+  await writeBoardData(b.id,init);
+  boards.push(b);await saveRegistry();await writeEntry(b);
+  if(beforeSwitch)beforeSwitch();
   await switchBoard(b.id);
   return b;
 }
 function closeTab(id){
   if(ui.open.length<2)return;
   var i=ui.open.indexOf(id);if(i<0)return;
+  var t=boardTitle(id);
   ui.open.splice(i,1);savePrefs();
   if(id===curBoard)switchBoard(ui.open[Math.max(0,i-1)]);else renderTabs();
+  // Closing a tab only hides it; say so, and offer it back.
+  toast('Tab “'+t+'” closed. The board and its cards are kept under + Boards.',6000,{label:'Reopen',fn:function(){switchBoard(id)}});
 }
-async function deleteBoard(id){
+async function trashBoard(id){
   if(boards.length<2||readOnly)return false;
-  var b=boardEntry(id),title=boardTitle(id);if(!b)return false;
+  var b=boardEntry(id);if(!b)return false;
+  b.title=boardTitle(id);
   if(id===curBoard){var other=ui.open.find(function(x){return x!==id})||boards.find(function(x){return x.id!==id}).id;if(!(await switchBoard(other)))return false}
-  boards=boards.filter(function(x){return x.id!==id});if(id===MAIN)deletedMain=true;
-  ui.open=ui.open.filter(function(x){return x!==id});delete ui.byBoard[id];savePrefs();
-  if(storage==='local'){await localRemove(id);await saveRegistry()}
-  else{
-    await writeEntry(b,true);
-    var r=refsFor(id);
-    try{var qs=await r.tasks.get();await runPool(qs.docs.map(function(d){return function(){return r.tasks.doc(d.id).delete()}}),6,function(){})}catch(e){}
-    try{await r.meta.delete()}catch(e){}
-    if(r.legacy)try{await r.legacy.delete()}catch(e){}
-  }
-  try{if(ab.db)await idbTx('readwrite',function(s){return s.delete(abKeyFor(id))},ab.db)}catch(e){}
-  renderTabs();toast('Board “'+title+'” deleted.',4000);
+  boards=boards.filter(function(x){return x.id!==id});b.deletedAt=new Date().toISOString();trash.unshift(b);
+  ui.open=ui.open.filter(function(x){return x!==id});savePrefs();
+  await saveRegistry();
+  try{await writeEntry(b,true)}catch(e){}
+  renderTabs();
+  toast('“'+b.title+'” moved to Recently deleted. It can be restored for '+TRASH_DAYS+' days.',8000,{label:'Restore',fn:function(){restoreBoard(id)}});
   return true;
+}
+async function restoreBoard(id){
+  var b=trash.find(function(x){return x.id===id});if(!b||readOnly)return;
+  trash=trash.filter(function(x){return x!==b});delete b.deletedAt;boards.push(b);
+  boards.sort(function(a,c){return (a.created||'0')<(c.created||'0')?-1:1});
+  await saveRegistry();
+  try{await writeEntry(b,false)}catch(e){}
+  await switchBoard(id);toast('“'+b.title+'” restored.',4000);
+}
+async function purgeBoard(id){
+  var b=trash.find(function(x){return x.id===id});if(!b||readOnly)return;
+  trash=trash.filter(function(x){return x!==b});delete ui.byBoard[id];savePrefs();
+  await purgeBoardData(id);
+  if(id===MAIN)tombs.push(MAIN);
+  if(storage==='local')await saveRegistry();
+  else if(id===MAIN){try{await writeEntry(b,true,true)}catch(e){}}
+  else{try{await dbRef.collection('boardlist').doc(id).delete()}catch(e){}}
+  try{if(ab.db)await idbTx('readwrite',function(s){return s.delete(abKeyFor(id))},ab.db)}catch(e){}
+}
+async function purgeExpired(){
+  if(readOnly)return;
+  var cut=Date.now()-TRASH_DAYS*DAY;
+  for(var i=0,l=trash.slice();i<l.length;i++)if(l[i].deletedAt&&Date.parse(l[i].deletedAt)<cut)await purgeBoard(l[i].id);
+}
+function openDeleteBoard(id){
+  var t=boardTitle(id),info=null;
+  openModal({title:'Delete board “'+t+'”?',
+    body:'<p id="db-count"><span class="hint">Counting cards…</span></p>'
+      +'<p>The board moves to <strong>Recently deleted</strong> (under + Boards), where it can be restored for '+TRASH_DAYS+' days. After that it is erased'+(storage==='shared'?' for everyone who uses it':'')+'.</p>'
+      +'<div style="margin:0 0 12px"><button class="btn" type="button" data-m="db-backup">Download a backup first</button><p class="msg" id="db-msg" role="status" hidden></p></div>'
+      +'<label class="fld"><span>To confirm, type the board name: <strong>'+esc(t)+'</strong></span><input id="db-name" type="text" autocomplete="off" spellcheck="false"></label>',
+    foot:'<span class="sp"></span><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn danger" type="button" id="db-ok" data-m="db-ok" disabled>Delete board</button>',
+    mount:function(){
+      $('#db-name').addEventListener('input',function(e){$('#db-ok').disabled=cleanName(e.target.value).toLowerCase()!==cleanName(t).toLowerCase()});
+      readBoardState(id).then(function(st){
+        info=st;var n=st?st.tasks.filter(function(x){return !x.archived}).length:0,a=st?st.tasks.length-n:0,c=$('#db-count');
+        if(c)c.innerHTML='This board has <strong>'+n+' card'+(n===1?'':'s')+'</strong>'+(a?' and <strong>'+a+' archived</strong>':'')+(st?', '+st.projects.length+' project'+(st.projects.length===1?'':'s'):'')+'.';
+      },function(){var c=$('#db-count');if(c)c.textContent='The cards on this board could not be counted.'});
+    },
+    action:async function(name){
+      if(name==='db-backup'){
+        var m=$('#db-msg'),st=info;try{st=st||await readBoardState(id)}catch(e){}
+        if(!st){m.className='msg err';m.textContent='Could not read this board.';m.hidden=false;return}
+        var r=await saveFile(slug(t)+'-backup-'+isoLocal(new Date())+'.json',JSON.stringify(st,null,2));
+        m.className='msg '+(r==='ok'?'ok':'err');m.textContent=r==='ok'?'Backup saved.':r==='declined'?'Download cancelled.':'Downloads are not available here.';m.hidden=false;return;
+      }
+      if(name==='db-ok'&&!$('#db-ok').disabled){closeModal();await trashBoard(id)}
+    }});
 }
 function syncRegistryTitle(title){
   var b=boardEntry(curBoard);
@@ -935,46 +1022,59 @@ function renderTabs(){
   }).join('')+'<button class="btab-add" type="button" data-act="boards" title="Create, open or delete boards">+ Boards</button>';
 }
 function openBoards(){
-  var confirmDel=null;
+  var armedPurge=null;
   function list(){
     return boards.map(function(b){
       var open=ui.open.indexOf(b.id)>=0,isCur=b.id===curBoard,t=boardTitle(b.id);
       return '<div class="brow"><span class="bname">'+esc(t)+'</span>'+(isCur?'<span class="badge">this board</span>':open?'<span class="badge">open in a tab</span>':'')+'<span class="sp"></span>'
         +(isCur?'':'<button class="btn sm" type="button" data-m="b-open" data-id="'+esc(b.id)+'">'+(open?'Go to':'Open')+'</button>')
-        +(readOnly||boards.length<2?'':confirmDel===b.id?'<button class="btn sm danger armed" type="button" data-m="b-del-ok" data-id="'+esc(b.id)+'">Delete board and all its cards</button><button class="btn sm ghost" type="button" data-m="b-del-no">Cancel</button>'
-          :'<button class="btn sm danger" type="button" data-m="b-del" data-id="'+esc(b.id)+'">Delete</button>')+'</div>';
-    }).join('');
+        +(readOnly||boards.length<2?'':'<button class="btn sm danger" type="button" data-m="b-del" data-id="'+esc(b.id)+'">Delete…</button>')+'</div>';
+    }).join('')
+    +(trash.length?'<h3 class="trash-h">Recently deleted</h3><p class="hint">Restorable for '+TRASH_DAYS+' days after deletion, then erased.</p>'+trash.map(function(b){
+      var at=Date.parse(b.deletedAt||''),gone=at?fmtShort(isoLocal(new Date(at+TRASH_DAYS*DAY))):'';
+      return '<div class="brow"><span class="bname">'+esc(b.title)+'</span><span class="ameta">'+(at?'deleted '+esc(fmtShort(isoLocal(new Date(at))))+' · erased on '+esc(gone):'')+'</span><span class="sp"></span>'
+        +(readOnly?'':'<button class="btn sm" type="button" data-m="b-restore" data-id="'+esc(b.id)+'">Restore</button>'
+          +'<button class="btn sm danger'+(armedPurge===b.id?' armed':'')+'" type="button" data-m="b-purge" data-id="'+esc(b.id)+'">'+(armedPurge===b.id?'Erase now, cannot be undone':'Erase now')+'</button>')+'</div>';
+    }).join(''):'');
   }
-  var ct=esc(boardTitle(curBoard)),projOpts=state.projects.map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>'}).join('');
+  var ct=esc(boardTitle(curBoard)),projOpts=state.projects.map(function(p){var n=state.tasks.filter(function(t){return t.projectId===p.id}).length;return '<option value="'+esc(p.id)+'">'+esc(p.name)+' ('+n+' card'+(n===1?'':'s')+')</option>'}).join('');
   var body=(readOnly?'':'<div class="sec"><h3>New board</h3><div class="nb"><label class="fld"><span>Name</span><input id="nb-name" type="text" maxlength="120" placeholder="e.g. CRISPR knockout screen"></label>'
       +'<div class="nb-mode" role="radiogroup" aria-label="Start with">'
       +'<label class="chk"><input type="radio" name="nb-mode" value="empty" checked> Empty, with the standard columns (To Do, In Progress, In Review, Done)</label>'
       +'<label class="chk"><input type="radio" name="nb-mode" value="cols"> Empty, with the same columns as “'+ct+'”</label>'
       +(state.projects.length?'<label class="chk"><input type="radio" name="nb-mode" value="move"> Move one project and its cards out of “'+ct+'”: <select id="nb-proj" aria-label="Project to move">'+projOpts+'</select></label>':'')
-      +'</div><p class="form-err" id="nb-err" role="alert" hidden></p><div><button class="btn primary" type="button" data-m="b-create">Create board</button></div></div></div>')
-    +'<div class="sec"><h3>All boards</h3><p class="hint">Each board has its own columns, projects, cards and backup file. Open boards show as tabs at the top; closing a tab keeps the board. Deleting a board cannot be undone, so download a backup of it first if you may need it.</p><div id="b-list">'+list()+'</div></div>';
+      +'</div><p class="form-err" id="nb-err" role="alert" hidden></p><div><button class="btn primary" type="button" id="nb-go" data-m="b-create">Create board</button></div></div></div>')
+    +'<div class="sec"><h3>All boards</h3><p class="hint">Each board has its own columns, projects, cards and backup file. Open boards show as tabs at the top; closing a tab keeps the board. A deleted board can be restored for '+TRASH_DAYS+' days.</p><div id="b-list">'+list()+'</div></div>';
+  function moveLabel(){
+    var b=$('#nb-go');if(!b)return;var m=($('input[name=nb-mode]:checked')||{}).value;
+    if(m==='move'){var pid=$('#nb-proj').value,n=state.tasks.filter(function(t){return t.projectId===pid}).length;b.textContent='Move '+n+' card'+(n===1?'':'s')+' to a new board'}
+    else b.textContent='Create board';
+  }
   openModal({title:'Boards',wide:true,body:body,foot:'<span class="sp"></span><button class="btn" type="button" data-close>Done</button>',
     repaintBoards:function(){var l=$('#b-list');if(l)l.innerHTML=list()},
+    mount:function(){$$('input[name=nb-mode]').forEach(function(r){r.addEventListener('change',moveLabel)});var sp=$('#nb-proj');if(sp)sp.addEventListener('change',moveLabel)},
     action:async function(name,btn){
       var id=btn.dataset&&btn.dataset.id;
       if(name==='b-open'){switchBoard(id);return}
-      if(name==='b-del'){confirmDel=id;this.repaintBoards();return}
-      if(name==='b-del-no'){confirmDel=null;this.repaintBoards();return}
-      if(name==='b-del-ok'){confirmDel=null;await deleteBoard(id);if(cur&&cur.repaintBoards)cur.repaintBoards();return}
+      if(name==='b-del'){openDeleteBoard(id);return}
+      if(name==='b-restore'){await restoreBoard(id);return}
+      if(name==='b-purge'){if(armedPurge!==id){armedPurge=id;this.repaintBoards();return}armedPurge=null;await purgeBoard(id);if(cur&&cur.repaintBoards)cur.repaintBoards();toast('Board erased.');return}
       if(name==='b-create'){
-        var mode=($('input[name=nb-mode]:checked')||{}).value||'empty',nm=$('#nb-name').value,init=defaultState(),msg='';
+        var mode=($('input[name=nb-mode]:checked')||{}).value||'empty',nm=$('#nb-name').value,init=defaultState(),after=null,msg='';
         if(mode==='cols')init.stages=clone(state.stages);
         if(mode==='move'){
           var pid=$('#nb-proj').value,p=projectOf(pid);if(!p)return;
           var moved=state.tasks.filter(function(t){return t.projectId===pid});
           init.stages=clone(state.stages);init.projects=[clone(p)];init.tasks=moved.map(clone);init.meta.customColors=clone(state.meta.customColors||[]);
           nm=nm||p.name;
-          state.tasks=state.tasks.filter(function(t){return t.projectId!==pid});state.projects=state.projects.filter(function(x){return x.id!==pid});commit();
+          // Only after the new board is safely written are the cards taken off this one.
+          after=function(){var ids={};moved.forEach(function(t){ids[t.id]=1});state.tasks=state.tasks.filter(function(t){return !ids[t.id]});state.projects=state.projects.filter(function(x){return x.id!==pid});commit()};
           msg=moved.length+' card'+(moved.length===1?'':'s')+' moved from “'+boardTitle(curBoard)+'”.';
         }
         if(!cleanName(nm)){var e=$('#nb-err');e.textContent='Give the new board a name.';e.hidden=false;$('#nb-name').focus();return}
-        var b=await createBoard(nm,init);
-        toast('Board “'+b.title+'” created. '+msg,5000);
+        btn.disabled=true;
+        try{var b=await createBoard(nm,init,after);toast('Board “'+b.title+'” created. '+msg,5000)}
+        catch(x){btn.disabled=false;var e2=$('#nb-err');if(e2){e2.textContent='The board could not be created, nothing was changed. Try again.';e2.hidden=false}}
       }
     }});
 }
@@ -1418,7 +1518,7 @@ function openStages(){
         var snap=JSON.stringify(state),keep={};draft.forEach(function(s){s.name=s.name.trim();keep[s.id]=1});
         state.tasks.forEach(function(t){var k=dest(stageKey(t));t.stageId=keep[k]?k:draft[0].id});
         state.stages=draft;state.tasks.forEach(syncDone);commit();closeModal();
-        if(removed.length)offerUndo(removed.length===1?'Stage removed':removed.length+' stages removed',snap);
+        if(JSON.stringify(state)!==snap)offerUndo(removed.length===1?'Stage removed':removed.length?removed.length+' stages removed':'Stages updated',snap);
       }
     }});
 }
@@ -1474,7 +1574,7 @@ function openProjects(){
         state.tasks.forEach(function(t){if(removed[t.projectId])t.projectId=''});
         state.projects=draft;commit();closeModal();
         var gone=Object.keys(removed).length;
-        if(gone)offerUndo(gone===1?'Project deleted':gone+' projects deleted',snap);
+        if(JSON.stringify(state)!==snap)offerUndo(gone===1?'Project deleted':gone?gone+' projects deleted':'Projects updated',snap);
       }
     }});
 }
@@ -1518,7 +1618,7 @@ function openBackup(){
         if(!f){m.hidden=true;return}
         var rd=new FileReader();
         rd.onload=function(){
-          try{var s=normalize(JSON.parse(String(rd.result)));pending=s;b.disabled=false;bn.disabled=readOnly;
+          try{var s=normalize(JSON.parse(String(rd.result)));pending=s;b.disabled=false;bn.disabled=readOnly;b.classList.remove('armed');b.textContent='Replace this board with the backup';
             m.className='msg ok';m.textContent=f.name+': '+s.projects.length+' projects, '+s.stages.length+' stages, '+s.tasks.length+' tasks.';}
           catch(e){m.className='msg err';m.textContent=(e&&e.message)||'That file could not be read as a backup.'}
           m.hidden=false;
@@ -1547,6 +1647,9 @@ function openBackup(){
         catch(e){var ta=$('#b-text');$('#b-det').open=true;ta.focus();ta.select();say('Copy was blocked. The text is selected below, press Ctrl+C or Cmd+C.','err')}
       }else if(name==='restore-new'&&pending){
         var nb=await createBoard(pending.meta.title||'Restored board',pending);toast('Backup opened as the new board “'+nb.title+'”.',5000);
+      }else if(name==='restore'&&pending&&!btn.classList.contains('armed')){
+        var cn=state.tasks.length;btn.classList.add('armed');
+        btn.textContent='Click again to replace all '+cn+' card'+(cn===1?'':'s')+' in “'+(state.meta.title||'this board')+'” with the '+pending.tasks.length+' in the file';
       }else if(name==='restore'&&pending){
         var snap=JSON.stringify(state);
         state=pending;state.meta.sample=!!state.meta.sample;commit();closeModal();offerUndo('Backup restored',snap);
@@ -1685,6 +1788,28 @@ function openAbUnsupported(){
     action:function(name){if(name==='ab-ok'){ui.abNoticeSeen=true;savePrefs();closeModal()}}});
 }
 
+function openClearSample(){
+  var ex=state.tasks.filter(function(t){return t.sample}).length,mine=state.tasks.length-ex;
+  openModal({title:'Remove the example data?',noDirty:true,
+    body:'<p>This removes <strong>'+ex+' example card'+(ex===1?'':'s')+'</strong> and the example projects that hold none of your own cards.</p>'
+      +'<p class="hint">'+(mine?'Your '+mine+' card'+(mine===1?'':'s')+' (ones you added, or example cards you edited) are kept.':'You have not added or edited any cards yet.')+' You can undo this for a few seconds afterwards.</p>',
+    foot:'<span class="sp"></span><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn danger" type="button" data-m="cs-ok">Remove example data</button>',
+    action:function(name){
+      if(name!=='cs-ok')return;
+      closeModal();
+      var snap=JSON.stringify(state);
+      // Edited example tasks lose their sample flag on save, so only untouched examples go.
+      // An example project that now holds the user's own tasks is kept.
+      state.tasks=state.tasks.filter(function(t){return !t.sample});
+      var used={};state.tasks.forEach(function(t){used[t.projectId]=1});
+      state.projects=state.projects.filter(function(p){return !p.sample||used[p.id]});
+      state.projects.forEach(function(p){delete p.sample});
+      var kept=state.tasks.length;
+      state.meta.sample=false;if(!kept)state.meta.nextNum=1;commit();
+      offerUndo(kept?'Example data removed. '+kept+' task'+(kept===1?'':'s')+' you added or edited were kept.':'Example data removed',snap);
+    }});
+}
+
 /* ---------- archive: finished cards can be taken off the board and kept ---------- */
 function archiveTasks(list,label){
   list=list.filter(function(t){return !t.archived});if(!list.length)return;
@@ -1740,6 +1865,41 @@ function renameStage(btn){
   inp.addEventListener('click',function(e){e.stopPropagation()});
 }
 
+/* ---------- safety nets ---------- */
+// Other browser tabs on this computer (local mode): each save leaves a note in localStorage, which fires a
+// "storage" event in the other tabs. They reload the board from storage, so no tab overwrites another's work.
+var TAB_ID=uid('tab_'),PING_KEY='labboard.ping';
+function ping(kind){if(storage!=='local')return;try{localStorage.setItem(PING_KEY,JSON.stringify({k:kind,b:curBoard,tab:TAB_ID,t:Date.now()}))}catch(e){}}
+window.addEventListener('storage',function(e){
+  if(e.key!==PING_KEY||!e.newValue||storage!=='local')return;
+  var m;try{m=JSON.parse(e.newValue)}catch(x){return}
+  if(!m||m.tab===TAB_ID)return;
+  if(m.k==='registry'){loadRegistryLocal().then(onRegistryChange);return}
+  if(m.k!=='board'||m.b!==curBoard||!loaded)return;
+  if(saveTimer||saving){toast('This board was also changed in another browser tab. Both changes are being combined; check the board.',6000)}
+  localRead(curBoard).then(function(raw){
+    if(!raw||m.b!==curBoard)return;
+    var other;try{other=normalize(JSON.parse(raw))}catch(x){return}
+    if(JSON.stringify(other)===JSON.stringify(state))return;
+    // A save pending here is merged onto the other tab's version (whole tasks, newest edit per task wins here).
+    if(saveTimer||saving){var mine=Object.create(null);state.tasks.forEach(function(t){mine[t.id]=t});other.tasks=other.tasks.map(function(t){return mine[t.id]||t});state=other;scheduleSave()}
+    else state=other;
+    render();if(!saveTimer)toast('Updated with changes made in another browser tab.',3000);
+  });
+});
+// Leaving the page while a save is pending or failing: write now, and ask the browser to warn.
+function pendingWork(){return !!(saveTimer||saving||retryTimer||switching||ab.timer||ab.writing)}
+window.addEventListener('beforeunload',function(e){
+  if(saveTimer&&storage==='local'){clearTimeout(saveTimer);saveTimer=null;flush()}
+  if(pendingWork()){e.preventDefault();e.returnValue='Changes are still being saved.';return e.returnValue}
+});
+window.addEventListener('pagehide',function(){if(saveTimer){clearTimeout(saveTimer);saveTimer=null;flush()}if(ab.timer){clearTimeout(ab.timer);ab.timer=null;abWrite()}});
+// Ask the browser not to clear this board's storage when the disk runs low. Chromium decides silently;
+// Firefox would show a prompt on load, so it is skipped there.
+function askPersist(){
+  try{if(storage==='local'&&navigator.storage&&navigator.storage.persist&&!/firefox/i.test(navigator.userAgent))navigator.storage.persisted().then(function(p){if(!p)navigator.storage.persist()}).catch(function(){})}catch(e){}
+}
+
 /* ---------- event wiring ---------- */
 var suppressClickAt=0;
 document.addEventListener('click',function(e){
@@ -1765,18 +1925,7 @@ document.addEventListener('click',function(e){
     if(k==='add'){var preset={stageId:a.dataset.stage};var g=ui.groupBy,l=a.dataset.lane;if(g==='priority')preset.priority=l;else if(g==='project')preset.projectId=l;else if(g==='assignee')preset.assignee=l;openTask(null,preset);return}
     if(k==='new'){openTask(null);return}
     if(k==='load-sample'){var keepTitle=state.meta.title;state=normalize(buildSample());state.meta.title=keepTitle||state.meta.title;commit();return}
-    if(k==='clear-sample'){
-      var snap=JSON.stringify(state);
-      // Edited example tasks lose their sample flag on save, so only untouched examples go.
-      // An example project that now holds the user's own tasks is kept.
-      state.tasks=state.tasks.filter(function(t){return !t.sample});
-      var used={};state.tasks.forEach(function(t){used[t.projectId]=1});
-      state.projects=state.projects.filter(function(p){return !p.sample||used[p.id]});
-      state.projects.forEach(function(p){delete p.sample});
-      var kept=state.tasks.length;
-      state.meta.sample=false;if(!kept)state.meta.nextNum=1;commit();
-      offerUndo(kept?'Example data removed. '+kept+' task'+(kept===1?'':'s')+' you added or edited were kept.':'Example data removed',snap);return;
-    }
+    if(k==='clear-sample'){openClearSample();return}
   }
   // A touch drag ends with a synthetic click on the card; it must not open the dialog.
   if(Date.now()-suppressClickAt<600&&e.target.closest('.card'))return;

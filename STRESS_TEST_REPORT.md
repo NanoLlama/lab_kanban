@@ -224,11 +224,44 @@ Click a column's name (To Do, In Progress, …), type, and press Enter. Esc canc
 
 Speed is unchanged: at 10,000 tasks, saving one card takes about 20 ms and page load 0.33 s.
 
+## Round 6: confirmations and safety nets
+
+The **×** on a tab only ever *closed* the tab (the board stayed under + Boards), but nothing said so. Real board deletion took two quick clicks in the Boards panel and erased the data immediately. Both are now guarded, and the rest of the app was audited for other ways to lose data.
+
+| Where data could be lost | Before | Now |
+|---|---|---|
+| **Delete a board** | two clicks, erased at once | confirmation window with the board's card, archived-card and project counts; **type the board name** to enable *Delete board*; **Download a backup first** button; the board goes to **Recently deleted** for 30 days (Restore any time, from the notice or + Boards), then is erased. *Erase now* in the bin takes two clicks. |
+| Close a tab (×) | silent | notice: "Tab closed. The board and its cards are kept under + Boards." with **Reopen** |
+| Replace a board from a backup | one click after choosing the file | a second click, after the button spells out what is replaced ("…replace all 12 cards in “X” with the 40 in the file"), plus Undo |
+| Remove example data | one click (Undo only) | confirmation window stating how many example cards go and that your own cards stay, plus Undo |
+| Move a project to a new board | cards left the old board *before* the new board was saved | the new board is written first; if that fails, nothing changes and an error says so. The button reads "Move N cards to a new board". |
+| Stages / Projects *Apply* | Undo only when something was removed | Undo after every Apply (e.g. un-ticking "Counts as done" clears completion dates; Undo brings them back) |
+| Closing the page right after an edit | a pending save could be lost | the save is written immediately when the page is hidden or closed, and the browser warns ("Leave site?") while a save is still in flight |
+| Same board open in two browser tabs | the tab that saved last silently overwrote the other | each tab picks up the other's saves (and new or deleted boards) within a moment |
+| Browser clearing storage on low disk | possible | the board asks the browser to keep its data (Chrome/Edge decide silently; skipped in Firefox, which would show a prompt) |
+
+Already safe and unchanged: deleting a card (two clicks + Undo), deleting a project (choose keep/delete cards + Undo), removing a stage (choose where its cards go + Undo), permanently deleting an archived card (two clicks + Undo), Esc/backdrop on a dialog with edits (asks first).
+
+| Test (`stress/safety.js`, `stress/shared.js`) | Result |
+|---|---|
+| Close a tab, then Reopen from the notice | board and its card back |
+| Delete dialog | counts shown; button disabled until the exact name (any capitalisation) is typed; backup file downloaded; Esc with a typed name asks first |
+| Delete, then Restore from the bin | tab and card back |
+| Erase now | needs a second click ("cannot be undone"); stored data removed |
+| Board deleted 31 days ago | erased on next load |
+| Remove example data: Cancel / confirm | 20 cards stay / removed, Undo offered |
+| Replace from backup | first click only arms; second replaces; Undo offered |
+| Un-tick "Counts as done", then Undo | completion dates 2 → 0 → 2 |
+| Two browser tabs on one board | each sees the other's new card; both survive a reload; a board made in one tab appears in the other |
+| Close the page right after saving a card | browser asked to warn; card saved |
+| Shared: moving a project when the save fails | error shown; cards still on the original board, locally and on the server |
+| Shared: A deletes a board, B restores it from Recently deleted | B sees and restores it with its cards |
+
 ## Known limits
 - Shared mode assumes a collection subscription delivers every task. The store documents queries as suited to "hundreds to low thousands" of documents and caps a database at 25,000. Past a few thousand tasks, archive Done tasks into a backup.
 - Two people saving the **same field** of the same task at the same instant: the last write wins (there are no transactions).
-- Undo restores the whole board as it was before the action, so a change someone else made during those 10 seconds would be rolled back too. Deleting a whole board has no Undo; back it up first.
-- The same board open in two **browser** tabs on one computer (local mode) is not synced between them: the last tab to save wins. Use the in-app tabs instead, or shared mode.
+- Undo restores the whole board as it was before the action, so a change someone else made during those 10 seconds would be rolled back too. A deleted board is restorable for 30 days; after that (or after *Erase now*) only a backup brings it back.
+- Two browser tabs on one board now pick up each other's saves, but if both save within the same fraction of a second, a card edited in both keeps this tab's version.
 
 ## Re-running the harness
 

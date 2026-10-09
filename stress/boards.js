@@ -7,7 +7,7 @@ const ready = (p) => p.waitForFunction(() => !document.querySelector('#view .loa
 async function goTab(p, title) { await p.click(`.btab-go:text-is("${title}")`); await ready(p); await p.waitForTimeout(150); }
 async function newBoard(p, name, mode, project) {
   await p.click('[data-act=boards]'); await p.fill('#nb-name', name);
-  await p.check(`input[name=nb-mode][value=${mode}]`); if (project) await p.selectOption('#nb-proj', { label: project });
+  await p.check(`input[name=nb-mode][value=${mode}]`); if (project) await p.$eval('#nb-proj', (sel, name) => { const o = [...sel.options].find((x) => x.textContent.startsWith(name + ' (')); sel.value = o.value; sel.dispatchEvent(new Event('change', { bubbles: true })) }, project);
   await p.click('[data-m=b-create]'); await ready(p); await p.waitForTimeout(200);
 }
 
@@ -44,7 +44,7 @@ async function newBoard(p, name, mode, project) {
     await page.click('.brow:has-text("Grant reporting") [data-m=b-open]'); await ready(page);
     const reopened = await tabs(page);
     // Delete a board (two clicks), from the Boards dialog.
-    await page.click('[data-act=boards]'); await page.click('.brow:has-text("Grant reporting") [data-m=b-del]'); await page.click('.brow:has-text("Grant reporting") [data-m=b-del-ok]');
+    await page.click('[data-act=boards]'); await page.click('.brow:has-text("Grant reporting") [data-m=b-del]'); await page.fill('#db-name', 'Grant reporting'); await page.click('#db-ok');
     await page.waitForTimeout(300);
     // It was the board being viewed, so the app switched away first (which closes the dialog).
     await ready(page); await page.click('[data-act=boards]');

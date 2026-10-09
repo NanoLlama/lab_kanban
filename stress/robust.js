@@ -16,7 +16,8 @@ async function restore(page, text) {
   await page.waitForSelector('#r-msg:not([hidden])');
   const msg = await page.textContent('#r-msg');
   const enabled = await page.$eval('#b-restore', (b) => !b.disabled);
-  if (enabled) await page.click('#b-restore'); else await page.click('[data-close]');
+  // Replacing a board takes two clicks: the first one spells out what will be replaced.
+  if (enabled) { await page.click('#b-restore'); await page.click('#b-restore'); } else await page.click('[data-close]');
   return { msg, accepted: enabled };
 }
 
@@ -195,7 +196,7 @@ async function restore(page, text) {
     const { page, ctx } = await L.open({});
     await page.click('[data-act=load-sample]');
     await page.click('.card'); await page.fill('#f-title', 'MY REAL EDITED TASK'); await page.click('[data-m=save]'); const saveErr = await page.$eval('#overlay', (o) => o.hidden ? null : document.getElementById('f-err').textContent); if (saveErr) { log({ test: 'sample:firstCardSaveError', saveErr }); await page.fill('#f-due', await page.inputValue('#f-start')); await page.click('[data-m=save]'); }
-    await page.click('[data-act=clear-sample]');
+    await page.click('[data-act=clear-sample]'); await page.click('[data-m=cs-ok]');
     const survived = await page.evaluate(() => document.body.textContent.includes('MY REAL EDITED TASK'));
     log({ test: 'sample:clearRemovesEdits', editedTaskSurvived: survived });
     await ctx.close();

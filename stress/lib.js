@@ -54,7 +54,8 @@ async function open({ data, claude, viewport, prefs, clock, autoBackup } = {}) {
   const page = await ctx.newPage();
   page._errors = [];
   page.on('pageerror', (e) => page._errors.push(String(e)));
-  page.on('dialog', (d) => { page._errors.push('dialog:' + d.message()); d.dismiss(); });
+  // The board warns before leaving while a save is in flight; tests that reload right after an edit leave anyway.
+  page.on('dialog', (d) => { if (d.type() === 'beforeunload') { page._unloadWarnings = (page._unloadWarnings || 0) + 1; d.accept(); return; } page._errors.push('dialog:' + d.message()); d.dismiss(); });
   if (clock) await page.clock.install({ time: clock });
   await page.addInitScript(([d, p]) => {
     if (!sessionStorage.getItem('__seeded')) {

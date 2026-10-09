@@ -144,10 +144,32 @@ async function newTask(page, title) { await page.click('#btn-new'); await page.f
     const bAfter = { columns: await b.page.$$eval('.stage-head h3', (h) => h.map((x) => x.textContent)), cards: await cards(b.page), archivedBtn: await b.page.textContent('#btn-archive') };
     const paths = [...S.docs.keys()].filter((k) => !k.startsWith('tasks/') && k !== 'board/main' && k !== 'board/meta').map((k) => k.replace(/b_[a-z0-9]+/g, '<id>').replace(/t_[a-z0-9]+$/, '<task>')).sort();
     // A deletes the board; B's tab closes and B lands on the first board.
-    await a.page.click('[data-act=boards]'); await a.page.click('.brow:has-text("Shared second board") [data-m=b-del]'); await a.page.click('.brow:has-text("Shared second board") [data-m=b-del-ok]');
+    await a.page.click('[data-act=boards]'); await a.page.click('.brow:has-text("Shared second board") [data-m=b-del]'); await a.page.fill('#db-name', 'Shared second board'); await a.page.click('#db-ok');
     await settle(a.page, 1200);
     log({ test: 'shared:boards', bList, bCards, bAfter, storedPaths: [...new Set(paths)], bTabsAfterDelete: await b.page.$$eval('.btab-go', (t) => t.map((x) => x.textContent)), bToast: await b.page.textContent('#toast'), bCardsNow: await cards(b.page),
-      leftoverDocs: [...S.docs.keys()].filter((k) => k.startsWith('boards/')), errors: a.page._errors.concat(b.page._errors) });
+      keptForRestore: [...S.docs.keys()].filter((k) => k.startsWith('boards/')).length, trashEntry: (() => { const e = [...S.docs.entries()].find(([k, v]) => k.startsWith('boardlist/') && JSON.parse(v).deleted); return e ? JSON.parse(e[1]).title : null })(), errors: a.page._errors.concat(b.page._errors) });
+    await a.ctx.close(); await b.ctx.close();
+  }
+  // C4. Moving a project out when the save fails: nothing is lost. A deleted board can be restored by a teammate.
+  {
+    const S = makeServer();
+    const base = v1(['P1 card', 'P1 card 2', 'Other card']); base.projects.push({ id: 'pr_b', name: 'Beta', color: '#E0662B' }); base.tasks[2].projectId = 'pr_b';
+    await S.seed('board/main', { json: JSON.stringify(base) });
+    const a = await client(S); await settle(a.page, 1000); const b = await client(S); await settle(b.page, 500);
+    const ready = (p) => p.waitForFunction(() => !document.querySelector('#view .loading'));
+    await a.page.click('[data-act=boards]'); await a.page.check('input[name=nb-mode][value=move]'); await a.page.selectOption('#nb-proj', 'pr_a');
+    const label = await a.page.textContent('#nb-go');
+    S.stats.failNext = 1;
+    await a.page.click('#nb-go'); await settle(a.page, 600);
+    const failed = { error: await a.page.textContent('#nb-err'), aStillHas: await cards(a.page), serverStillHas: titles(S) };
+    await a.page.click('#nb-go'); await ready(a.page); await settle(a.page, 900);
+    const ok = { aTabs: await a.page.$$eval('.btab-go', (t) => t.map((x) => x.textContent)), aCards: await cards(a.page), mainOnServer: titles(S) };
+    // A deletes the new board; B restores it from Recently deleted.
+    await a.page.click('[data-act=boards]'); await a.page.click('.brow:has-text("Alpha") [data-m=b-del]'); await a.page.fill('#db-name', 'Alpha'); await a.page.click('#db-ok'); await settle(a.page, 900);
+    await b.page.click('[data-act=boards]');
+    const bBin = await b.page.$$eval('.trash-h ~ .brow .bname', (n) => n.map((x) => x.textContent));
+    await b.page.click('.brow:has-text("Alpha") [data-m=b-restore]'); await ready(b.page); await settle(b.page, 900);
+    log({ test: 'shared:moveAndRestore', label, failed, ok, bBin, bRestoredCards: await cards(b.page), aListAfter: await (async () => { await a.page.click('[data-act=boards]'); return a.page.$$eval('#b-list > .brow .bname', (n) => n.map((x) => x.textContent)) })(), errors: a.page._errors.concat(b.page._errors) });
     await a.ctx.close(); await b.ctx.close();
   }
   // D. One edit writes only what changed.
@@ -166,7 +188,7 @@ async function newTask(page, title) { await page.click('#btn-new'); await page.f
     const { page, ctx } = await client(S); await settle(page, 500);
     await page.click('#btn-backup');
     await page.setInputFiles('#b-file', { name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(big)) });
-    await page.waitForSelector('#b-restore:not([disabled])'); await page.click('#b-restore');
+    await page.waitForSelector('#b-restore:not([disabled])'); await page.click('#b-restore'); await page.click('#b-restore');
     await page.waitForFunction(() => /Saved, shared/.test(document.getElementById('status').textContent), null, { timeout: 120000 });
     log({ test: 'shared:largeBoard', boardJsonKB: Math.round(JSON.stringify(big).length / 1024), serverTaskDocs: serverTasks(S).length, largestDocKB: +(S.stats.maxDocBytes / 1024).toFixed(1), status: await L.status(page) });
     await ctx.close();

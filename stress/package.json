@@ -7,10 +7,11 @@
     "robust": "node robust.js",
     "shared": "node shared.js",
     "layout": "node giant.js",
-    "all": "node perf.js && node robust.js && node shared.js && node features.js && node autobackup.js && node boards.js && node giant.js",
+    "all": "node perf.js && node robust.js && node shared.js && node features.js && node autobackup.js && node boards.js && node safety.js && node giant.js",
     "features": "node features.js",
     "autobackup": "node autobackup.js",
-    "boards": "node boards.js"
+    "boards": "node boards.js",
+    "safety": "node safety.js"
   },
   "devDependencies": {
     "playwright": "^1.56.1"
