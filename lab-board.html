@@ -74,6 +74,45 @@ h1,h2,h3,h4{margin:0}
 .icon-btn:hover{color:var(--fg);background:var(--band-2)}
 .icon-btn[disabled]{opacity:.35;cursor:default}
 .status{font:12px var(--f-mono);color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+/* board tabs */
+.btabs{display:flex;align-items:flex-end;gap:2px;margin:-4px 0 14px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:thin}
+.btab{display:flex;align-items:center;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;margin-bottom:-1px;min-width:0;flex:none}
+.btab.on{background:var(--bg);border-color:var(--line);box-shadow:0 1px 0 var(--bg),inset 0 2px 0 var(--accent)}
+.btab-go{border:0;background:none;cursor:pointer;padding:7px 6px 7px 12px;font-weight:500;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;border-radius:6px}
+.btab-go:hover{color:var(--fg)}
+.btab.on .btab-go{color:var(--fg);font-weight:600}
+.btab-x{border:0;background:none;color:var(--muted);cursor:pointer;padding:3px 6px;border-radius:5px;font-size:15px;line-height:1;margin-right:4px}
+.btab-x:hover{background:var(--band-2);color:var(--fg)}
+.btab:not(.on) .btab-x{opacity:0}
+.btab:hover .btab-x,.btab-x:focus-visible{opacity:1}
+@media (hover:none){.btab .btab-x{opacity:1}}
+.btab-add{border:1px dashed var(--line);background:none;color:var(--muted);border-radius:7px;padding:3px 10px;margin:0 0 5px 6px;cursor:pointer;font-size:13px;font-weight:500;flex:none;white-space:nowrap}
+.btab-add:hover{border-color:var(--muted);color:var(--fg)}
+.brow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.bname{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.brow .sp,.arow .sp{flex:1}
+.nb{display:flex;flex-direction:column;gap:10px}
+.nb-mode{display:flex;flex-direction:column;gap:7px}
+.nb-mode .chk{align-items:flex-start;flex-wrap:wrap}
+.nb-mode select{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:4px 8px;max-width:100%}
+/* archive */
+.card-top .arch{margin-left:auto;border:0;background:none;color:var(--muted);cursor:pointer;padding:3px;border-radius:5px;display:inline-flex;opacity:0;transition:opacity .12s}
+.card:hover .arch,.card:focus-within .arch,.arch:focus-visible{opacity:1}
+@media (hover:none){.card-top .arch{opacity:.8}}
+.arch:hover{background:var(--band-2);color:var(--fg)}
+.arch svg,.st-arch svg{width:15px;height:15px}
+.st-arch{border:0;background:none;color:var(--muted);cursor:pointer;padding:3px;border-radius:5px;display:inline-flex}
+.st-arch:hover{background:var(--band-2);color:var(--fg)}
+.arow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 0 8px 10px;border-bottom:1px solid var(--line);border-left:3px solid var(--pc)}
+.atitle{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.amain{flex:1 1 260px;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px}
+.abtns{display:flex;gap:6px;flex:none;margin-left:auto}
+.ameta{font-size:12px;color:var(--muted)}
+.a-q{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:6px 9px;width:100%;margin-bottom:6px}
+/* column name: click to rename */
+.st-name{border:0;background:none;font:inherit;color:inherit;padding:0 3px;margin:0 -3px;border-radius:4px;cursor:text;text-align:left;letter-spacing:inherit}
+.st-name:hover{background:var(--band-2)}
+.st-in{font:600 15px var(--f-display);border:1px solid var(--accent);border-radius:5px;background:var(--surface);padding:0 4px;width:100%;min-width:60px}
 /* automatic backup file indicator */
 .ab-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:3px 10px;font:12px var(--f-mono);color:var(--muted);cursor:pointer}
 .ab-chip:hover{border-color:var(--muted);color:var(--fg)}
@@ -270,6 +309,7 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
 </style>
 
 <div id="app">
+  <nav class="btabs" id="btabs" role="tablist" aria-label="Boards"></nav>
   <header class="top">
     <div class="brand">
       <h1 id="board-title"><button class="title-btn" id="title-btn" type="button" title="Rename this board" aria-label="Board title: Lab Task Board. Click to rename."><span id="title-text">Lab Task Board</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2.5l2.5 2.5L6 12.5H3.5V10z"/></svg></button></h1>
@@ -286,6 +326,7 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
       <button class="btn edit-only" id="btn-projects" type="button">Projects</button>
       <button class="btn edit-only" id="btn-stages" type="button">Stages</button>
       <button class="btn" id="btn-backup" type="button">Backup <span class="dot-stale" id="stale-dot"></span></button>
+      <button class="btn" id="btn-archive" type="button" hidden>Archived <span class="mono" id="arch-n"></span></button>
     </div>
   </header>
 
@@ -387,6 +428,7 @@ var TL_MAX_DAYS=1100;
 var DAY=86400000, MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 var ICON={
   chev:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>',
+  box:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="3" rx="1"/><path d="M3 6v6.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M6.5 9h3"/></svg>',
   check:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.5"/></svg>'
 };
 var $=function(s,r){return (r||document).querySelector(s)};
@@ -413,12 +455,19 @@ var state=null, storage='pending', readOnly=false, loaded=false;
 var saveTimer=null, saving=false, again=false, retryTimer=null, retryDelay=0, quotaWarned=false;
 var ui=loadPrefs();
 function loadPrefs(){
-  var d={view:'board',groupBy:'priority',collapsed:{},expanded:{},colW:{},f:{project:'',assignee:'',q:'',overdue:false}};
-  try{var r=JSON.parse(localStorage.getItem(PREF_KEY)||'null'); if(r){d.view=r.view==='timeline'?'timeline':'board'; d.groupBy=r.groupBy||d.groupBy; d.collapsed=r.collapsed||{};d.abDontAsk=!!r.abDontAsk;d.abNoticeSeen=!!r.abNoticeSeen;
-    if(isObj(r.colW))Object.keys(r.colW).forEach(function(k){var w=+r.colW[k];if(w>=COL_MIN&&w<=COL_MAX)d.colW[k]=Math.round(w)});}}catch(e){}
+  var d={view:'board',groupBy:'priority',collapsed:{},expanded:{},colW:{},byBoard:{},open:[],active:'main',f:{project:'',assignee:'',q:'',overdue:false}};
+  try{var r=JSON.parse(localStorage.getItem(PREF_KEY)||'null'); if(r){d.view=r.view==='timeline'?'timeline':'board'; d.groupBy=r.groupBy||d.groupBy;d.abDontAsk=!!r.abDontAsk;d.abNoticeSeen=!!r.abNoticeSeen;
+    // Column widths and collapsed lanes are kept per board; older prefs belong to the first board.
+    var bb=isObj(r.byBoard)?r.byBoard:{main:{colW:r.colW,collapsed:r.collapsed}};
+    Object.keys(bb).forEach(function(id){var x=isObj(bb[id])?bb[id]:{},cw={};
+      if(isObj(x.colW))Object.keys(x.colW).forEach(function(k){var w=+x.colW[k];if(w>=LANE_MIN&&w<=COL_MAX)cw[k]=Math.round(w)});
+      d.byBoard[id]={colW:cw,collapsed:isObj(x.collapsed)?x.collapsed:{}}});
+    if(Array.isArray(r.open))d.open=r.open.filter(function(x){return typeof x==='string'});
+    if(typeof r.active==='string')d.active=r.active;}}catch(e){}
   return d;
 }
-function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify({view:ui.view,groupBy:ui.groupBy,collapsed:ui.collapsed,colW:ui.colW,abDontAsk:!!ui.abDontAsk,abNoticeSeen:!!ui.abNoticeSeen}))}catch(e){}}
+function useBoardPrefs(id){var b=ui.byBoard[id]||(ui.byBoard[id]={colW:{},collapsed:{}});ui.colW=b.colW;ui.collapsed=b.collapsed}
+function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify({view:ui.view,groupBy:ui.groupBy,byBoard:ui.byBoard,open:ui.open,active:curBoard,abDontAsk:!!ui.abDontAsk,abNoticeSeen:!!ui.abNoticeSeen}))}catch(e){}}
 
 function defaultState(){
   return {version:2,meta:{title:'Lab Task Board',nextNum:1,sample:false,lastBackupAt:'',updatedAt:'',customColors:[]},
@@ -458,6 +507,7 @@ function normTask(x,i,ctx){
     start:start,due:due,color:typeof x.color==='string'&&HEX.test(x.color)?x.color.toLowerCase():'',
     blocked:!!x.blocked,order:typeof x.order==='number'&&isFinite(x.order)?x.order:(i+1)*10,createdAt:String(x.createdAt||new Date().toISOString()),doneAt:String(x.doneAt||'')};
   if(x.sample)t.sample=true;
+  if(x.archived){t.archived=true;t.archivedAt=typeof x.archivedAt==='string'?x.archivedAt:new Date().toISOString()}
   return t;
 }
 var LENIENT={lenient:true};
@@ -488,7 +538,8 @@ function isDone(t){return !!stageOf(stageKey(t)).done}
 function projColor(id){var p=projectOf(id);return p?p.color:'#6B7A8C'}
 function cardColor(t){return t.color||projColor(projKey(t))}
 function byOrder(a,b){return a.order-b.order||a.ref.localeCompare(b.ref)}
-function people(){var m={};state.tasks.forEach(function(t){if(t.assignee)m[t.assignee]=1});return Object.keys(m).sort()}
+function isArch(t){return !!t.archived}
+function people(){var m={};state.tasks.forEach(function(t){if(t.assignee&&!t.archived)m[t.assignee]=1});return Object.keys(m).sort()}
 // "patel", "Patel " and "Patel" are one person: reuse the spelling already on the board.
 function canonPerson(n){n=cleanName(n);if(!n)return '';var lo=n.toLowerCase();return people().find(function(p){return p.toLowerCase()===lo})||n}
 function nextOrder(stageId){var m=0;state.tasks.forEach(function(t){if(stageKey(t)===stageId&&t.order>m)m=t.order});return m+10}
@@ -498,6 +549,7 @@ function rememberColor(c){if(!c||PALETTE.some(function(p){return p.toLowerCase()
 
 function visible(t){
   var f=ui.f;
+  if(t.archived)return false;
   if(f.project&&projKey(t)!==f.project)return false;
   if(f.assignee&&(f.assignee==='__none'?t.assignee:t.assignee!==f.assignee))return false;
   if(f.overdue&&!(t.due&&!isDone(t)&&toDay(t.due)<TODAY))return false;
@@ -551,7 +603,7 @@ function idbPut(k,v){return idbTx('readwrite',function(s){return s.put(v,k)})}
 async function flushLocal(){
   var json=JSON.stringify(state);
   try{
-    if(idb)await idbPut('board',json);else localStorage.setItem(LOCAL_KEY,json);
+    await localWrite(curBoard,json);
     quotaWarned=false;setStatus('local','Saved in this browser only');
   }catch(e){
     setStatus('error','Not saved: browser storage full');
@@ -668,9 +720,13 @@ function tryReady(){
   if(loaded||!metaReady||!tasksReady)return;
   var ids=Object.keys(pendingTasks);
   if(!pendingMeta&&!ids.length){
-    // Nothing in the per-task layout yet: upgrade a board saved by the single-document version.
     loaded=true;state=defaultState();
+    var init=takeInit(curBoard),bid=curBoard;
+    if(init){state=normalize(init);setStatus('saving','Saving');render();scheduleSave();return}
+    if(!legacyRef){state.meta.title=boardTitle(curBoard);setStatus(readOnly?'readonly':'saved',readOnly?'View only':'Saved, shared');render();return}
+    // Nothing in the per-task layout yet: upgrade a board saved by the single-document version.
     legacyRef.get().then(function(s){
+      if(bid!==curBoard)return;
       var d=s.exists?s.data():null;
       if(d&&typeof d.json==='string'){try{state=normalize(JSON.parse(d.json));render();scheduleSave();toast('Board moved to per-task storage.',4000);return}catch(e){}}
       setStatus(readOnly?'readonly':'saved',readOnly?'View only':'Saved, shared');render();
@@ -704,26 +760,230 @@ async function boot(){
   if(db){
     try{if(user&&typeof user.can==='function'){var w=await user.can('data.write');if(w===false)readOnly=true}}catch(e){}
     if(readOnly)document.body.classList.add('ro');
-    storage='shared';dbRef=db;metaRef=db.doc(META_DOC);tasksCol=db.collection(TASKS_COL);legacyRef=db.doc(LEGACY_DOC);
-    subscribe();
-    return;
+    storage='shared';dbRef=db;
+    await subscribeRegistry();
+  }else{
+    storage='local';
+    try{idb=await idbOpen()}catch(e){idb=null}
+    await loadRegistryLocal();
   }
-  storage='local';
-  try{idb=await idbOpen()}catch(e){idb=null}
-  var raw=null,ls=null;
-  try{if(idb)raw=await idbGet('board')}catch(e){}
-  try{ls=localStorage.getItem(LOCAL_KEY)}catch(e){}
-  // One-time move from localStorage (about 5 MB) to IndexedDB.
-  if(!raw&&ls){raw=ls;if(idb){try{await idbPut('board',ls);localStorage.removeItem(LOCAL_KEY)}catch(e){}}}
-  try{state=raw?normalize(JSON.parse(raw)):defaultState()}catch(e){state=defaultState()}
-  loaded=true;setStatus('local','Saved in this browser only');render();
+  pickInitialBoard();
+  await openBoardData(curBoard);
 }
 
+/* ---------- boards: separate boards, open side by side as tabs ----------
+   Each board has its own stages, projects, cards, title and backup file.
+   Local: IndexedDB key "board" (the first board) or "board:<id>"; the list of boards under "boards".
+   Shared: the first board keeps its original paths (board/meta, tasks/*); others live under
+   boards/<id> and boards/<id>/tasks/*; boardlist/<id> lists every board for everyone. */
+var MAIN='main', REG_KEY='labboard.boards.v1';
+var curBoard=MAIN, boards=[], deletedMain=false, regUnsub=null, pendingInit=null, switching=false, booted=false;
+useBoardPrefs(MAIN);
+function boardEntry(id){return boards.find(function(b){return b.id===id})}
+function boardTitle(id){if(id===curBoard&&state&&loaded)return state.meta.title||'Lab Task Board';var b=boardEntry(id);return b&&b.title||'Untitled board'}
+function slug(t){return String(t||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'lab-board'}
+function dataKey(id){return id===MAIN?'board':'board:'+id}
+function lsKey(id){return id===MAIN?LOCAL_KEY:LOCAL_KEY+':'+id}
+async function localRead(id){
+  var raw=null;
+  try{if(idb)raw=await idbGet(dataKey(id))}catch(e){}
+  if(!raw){
+    try{raw=localStorage.getItem(lsKey(id))}catch(e){}
+    // One-time move from localStorage (about 5 MB) to IndexedDB.
+    if(raw&&idb){try{await idbPut(dataKey(id),raw);localStorage.removeItem(lsKey(id))}catch(e){}}
+  }
+  return raw;
+}
+async function localWrite(id,json){if(idb)await idbPut(dataKey(id),json);else localStorage.setItem(lsKey(id),json)}
+async function localRemove(id){try{if(idb)await idbTx('readwrite',function(s){return s.delete(dataKey(id))})}catch(e){}try{localStorage.removeItem(lsKey(id))}catch(e){}}
+function setBoards(list){
+  var seen=Object.create(null),out=[];list=Array.isArray(list)?list:[];
+  deletedMain=list.some(function(b){return isObj(b)&&b.id===MAIN&&b.deleted});
+  list.forEach(function(b){if(isObj(b)&&!b.deleted&&okDocId(String(b.id))&&!seen[b.id]){seen[b.id]=1;out.push({id:String(b.id),title:clip(cleanName(b.title)||'Untitled board',120),created:String(b.created||'')})}});
+  if(!seen[MAIN]&&(!deletedMain||!out.length))out.push({id:MAIN,title:'Lab Task Board',created:''});
+  out.sort(function(a,b){return (a.created||'0')<(b.created||'0')?-1:(a.created||'0')>(b.created||'0')?1:0});
+  boards=out;
+}
+async function loadRegistryLocal(){
+  var raw=null;try{if(idb)raw=await idbGet('boards')}catch(e){}
+  if(!raw)try{raw=localStorage.getItem(REG_KEY)}catch(e){}
+  var list=[];try{list=JSON.parse(raw||'[]')}catch(e){}
+  setBoards(list);
+}
+async function saveRegistry(){
+  if(storage!=='local'||readOnly)return;
+  var j=JSON.stringify(boards.concat(deletedMain&&!boardEntry(MAIN)?[{id:MAIN,deleted:true}]:[]));
+  try{if(idb)await idbPut('boards',j);else localStorage.setItem(REG_KEY,j)}catch(e){}
+}
+function writeEntry(b,deleted){
+  if(storage!=='shared'||readOnly||!b)return Promise.resolve();
+  return dbRef.collection('boardlist').doc(b.id).set({title:b.title,created:b.created||'',deleted:!!deleted}).catch(function(){});
+}
+function subscribeRegistry(){
+  return new Promise(function(res){
+    var first=true,done=function(){if(first){first=false;res()}};
+    regUnsub=dbRef.collection('boardlist').onSnapshot(function(qs){
+      setBoards(qs.docs.map(function(d){var x=d.data()||{};return {id:d.id,title:x.title,created:x.created,deleted:!!x.deleted}}));
+      onRegistryChange();done();
+    },done);
+    setTimeout(done,4000);
+  });
+}
+function onRegistryChange(){
+  if(!booted)return;
+  var gone=ui.open.filter(function(id){return !boardEntry(id)});
+  if(gone.length){
+    ui.open=ui.open.filter(function(id){return !!boardEntry(id)});if(!ui.open.length)ui.open=[boards[0].id];savePrefs();
+    if(gone.indexOf(curBoard)>=0){toast('This board was deleted by someone else.',5000);switchBoard(ui.open[0],true);return}
+  }
+  renderTabs();
+  if(cur&&cur.repaintBoards)cur.repaintBoards();
+}
+function refsFor(id){
+  if(id===MAIN)return {meta:dbRef.doc(META_DOC),tasks:dbRef.collection(TASKS_COL),legacy:dbRef.doc(LEGACY_DOC)};
+  return {meta:dbRef.doc('boards/'+id),tasks:dbRef.collection('boards/'+id+'/tasks'),legacy:null};
+}
+function takeInit(id){if(pendingInit&&pendingInit.id===id){var s=pendingInit.state;pendingInit=null;return s}return null}
+function pickInitialBoard(){
+  ui.open=ui.open.filter(function(id,i,a){return boardEntry(id)&&a.indexOf(id)===i});
+  if(!ui.open.length)ui.open=[boards[0].id];
+  curBoard=ui.open.indexOf(ui.active)>=0?ui.active:ui.open[0];
+  useBoardPrefs(curBoard);booted=true;savePrefs();
+}
+async function openBoardData(id){
+  loaded=false;state=null;board.sig='';
+  $('#view').innerHTML='<p class="loading">Loading board…</p>';$('#stats').innerHTML='';
+  renderTabs();
+  if(storage==='shared'){
+    var r=refsFor(id);metaRef=r.meta;tasksCol=r.tasks;legacyRef=r.legacy;
+    metaC=metaO=null;taskC=Object.create(null);taskO=Object.create(null);
+    metaReady=tasksReady=false;pendingMeta=null;pendingTasks=Object.create(null);
+    subscribe();return;
+  }
+  var raw=await localRead(id);if(id!==curBoard)return;
+  var init=raw?null:takeInit(id);
+  try{state=raw?normalize(JSON.parse(raw)):init?normalize(init):defaultState()}catch(e){state=defaultState()}
+  if(!raw&&!init&&id!==MAIN)state.meta.title=boardTitle(id);
+  loaded=true;setStatus('local','Saved in this browser only');render();
+  if(init)scheduleSave();
+}
+// Before leaving a board its pending changes are written, so nothing is lost by switching.
+async function switchBoard(id,force){
+  if(switching||!boardEntry(id)||(!force&&id===curBoard&&loaded))return false;
+  switching=true;
+  if(!$('#overlay').hidden)closeModal();
+  toastAct=null;$('#toast').hidden=true;
+  if(state&&loaded&&!readOnly){
+    clearTimeout(saveTimer);saveTimer=null;clearTimeout(retryTimer);retryTimer=null;
+    while(saving)await new Promise(function(r){setTimeout(r,30)});
+    await flush();
+    if(retryTimer){switching=false;toast('“'+boardTitle(curBoard)+'” could not be saved yet, so it stays open. Try again in a moment.',6000);return false}
+    if(ab.timer){clearTimeout(ab.timer);ab.timer=null;await abWrite()}
+  }
+  unsubs.forEach(function(u){try{u()}catch(e){}});unsubs=[];clearTimeout(resubTimer);
+  abReset();
+  curBoard=id;if(ui.open.indexOf(id)<0)ui.open.push(id);
+  useBoardPrefs(id);ui.f={project:'',assignee:'',q:'',overdue:false};$('#flt-q').value='';ui.expanded={};
+  savePrefs();
+  await openBoardData(id);
+  switching=false;
+  return true;
+}
+async function createBoard(title,init){
+  var b={id:uid('b_'),title:clip(cleanName(title)||'Untitled board',120),created:new Date().toISOString()};
+  init=init||defaultState();init.meta=Object.assign({},init.meta,{title:b.title,sample:false,lastBackupAt:''});
+  boards.push(b);await saveRegistry();writeEntry(b);
+  pendingInit={id:b.id,state:init};
+  await switchBoard(b.id);
+  return b;
+}
+function closeTab(id){
+  if(ui.open.length<2)return;
+  var i=ui.open.indexOf(id);if(i<0)return;
+  ui.open.splice(i,1);savePrefs();
+  if(id===curBoard)switchBoard(ui.open[Math.max(0,i-1)]);else renderTabs();
+}
+async function deleteBoard(id){
+  if(boards.length<2||readOnly)return false;
+  var b=boardEntry(id),title=boardTitle(id);if(!b)return false;
+  if(id===curBoard){var other=ui.open.find(function(x){return x!==id})||boards.find(function(x){return x.id!==id}).id;if(!(await switchBoard(other)))return false}
+  boards=boards.filter(function(x){return x.id!==id});if(id===MAIN)deletedMain=true;
+  ui.open=ui.open.filter(function(x){return x!==id});delete ui.byBoard[id];savePrefs();
+  if(storage==='local'){await localRemove(id);await saveRegistry()}
+  else{
+    await writeEntry(b,true);
+    var r=refsFor(id);
+    try{var qs=await r.tasks.get();await runPool(qs.docs.map(function(d){return function(){return r.tasks.doc(d.id).delete()}}),6,function(){})}catch(e){}
+    try{await r.meta.delete()}catch(e){}
+    if(r.legacy)try{await r.legacy.delete()}catch(e){}
+  }
+  try{if(ab.db)await idbTx('readwrite',function(s){return s.delete(abKeyFor(id))},ab.db)}catch(e){}
+  renderTabs();toast('Board “'+title+'” deleted.',4000);
+  return true;
+}
+function syncRegistryTitle(title){
+  var b=boardEntry(curBoard);
+  if(!b||!loaded||readOnly||b.title===title)return;
+  b.title=title;saveRegistry();writeEntry(b);
+}
+function renderTabs(){
+  var n=$('#btabs');if(!n)return;
+  n.innerHTML=ui.open.filter(function(id){return boardEntry(id)}).map(function(id){
+    var t=boardTitle(id),on=id===curBoard;
+    return '<div class="btab'+(on?' on':'')+'"><button class="btab-go" type="button" role="tab" aria-selected="'+on+'" data-act="board-go" data-id="'+esc(id)+'" title="'+esc(t)+'">'+esc(t)+'</button>'
+      +(ui.open.length>1?'<button class="btab-x" type="button" data-act="board-close" data-id="'+esc(id)+'" aria-label="Close the '+esc(t)+' tab" title="Close tab (the board is kept)">×</button>':'')+'</div>';
+  }).join('')+'<button class="btab-add" type="button" data-act="boards" title="Create, open or delete boards">+ Boards</button>';
+}
+function openBoards(){
+  var confirmDel=null;
+  function list(){
+    return boards.map(function(b){
+      var open=ui.open.indexOf(b.id)>=0,isCur=b.id===curBoard,t=boardTitle(b.id);
+      return '<div class="brow"><span class="bname">'+esc(t)+'</span>'+(isCur?'<span class="badge">this board</span>':open?'<span class="badge">open in a tab</span>':'')+'<span class="sp"></span>'
+        +(isCur?'':'<button class="btn sm" type="button" data-m="b-open" data-id="'+esc(b.id)+'">'+(open?'Go to':'Open')+'</button>')
+        +(readOnly||boards.length<2?'':confirmDel===b.id?'<button class="btn sm danger armed" type="button" data-m="b-del-ok" data-id="'+esc(b.id)+'">Delete board and all its cards</button><button class="btn sm ghost" type="button" data-m="b-del-no">Cancel</button>'
+          :'<button class="btn sm danger" type="button" data-m="b-del" data-id="'+esc(b.id)+'">Delete</button>')+'</div>';
+    }).join('');
+  }
+  var ct=esc(boardTitle(curBoard)),projOpts=state.projects.map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>'}).join('');
+  var body=(readOnly?'':'<div class="sec"><h3>New board</h3><div class="nb"><label class="fld"><span>Name</span><input id="nb-name" type="text" maxlength="120" placeholder="e.g. CRISPR knockout screen"></label>'
+      +'<div class="nb-mode" role="radiogroup" aria-label="Start with">'
+      +'<label class="chk"><input type="radio" name="nb-mode" value="empty" checked> Empty, with the standard columns (To Do, In Progress, In Review, Done)</label>'
+      +'<label class="chk"><input type="radio" name="nb-mode" value="cols"> Empty, with the same columns as “'+ct+'”</label>'
+      +(state.projects.length?'<label class="chk"><input type="radio" name="nb-mode" value="move"> Move one project and its cards out of “'+ct+'”: <select id="nb-proj" aria-label="Project to move">'+projOpts+'</select></label>':'')
+      +'</div><p class="form-err" id="nb-err" role="alert" hidden></p><div><button class="btn primary" type="button" data-m="b-create">Create board</button></div></div></div>')
+    +'<div class="sec"><h3>All boards</h3><p class="hint">Each board has its own columns, projects, cards and backup file. Open boards show as tabs at the top; closing a tab keeps the board. Deleting a board cannot be undone, so download a backup of it first if you may need it.</p><div id="b-list">'+list()+'</div></div>';
+  openModal({title:'Boards',wide:true,body:body,foot:'<span class="sp"></span><button class="btn" type="button" data-close>Done</button>',
+    repaintBoards:function(){var l=$('#b-list');if(l)l.innerHTML=list()},
+    action:async function(name,btn){
+      var id=btn.dataset&&btn.dataset.id;
+      if(name==='b-open'){switchBoard(id);return}
+      if(name==='b-del'){confirmDel=id;this.repaintBoards();return}
+      if(name==='b-del-no'){confirmDel=null;this.repaintBoards();return}
+      if(name==='b-del-ok'){confirmDel=null;await deleteBoard(id);if(cur&&cur.repaintBoards)cur.repaintBoards();return}
+      if(name==='b-create'){
+        var mode=($('input[name=nb-mode]:checked')||{}).value||'empty',nm=$('#nb-name').value,init=defaultState(),msg='';
+        if(mode==='cols')init.stages=clone(state.stages);
+        if(mode==='move'){
+          var pid=$('#nb-proj').value,p=projectOf(pid);if(!p)return;
+          var moved=state.tasks.filter(function(t){return t.projectId===pid});
+          init.stages=clone(state.stages);init.projects=[clone(p)];init.tasks=moved.map(clone);init.meta.customColors=clone(state.meta.customColors||[]);
+          nm=nm||p.name;
+          state.tasks=state.tasks.filter(function(t){return t.projectId!==pid});state.projects=state.projects.filter(function(x){return x.id!==pid});commit();
+          msg=moved.length+' card'+(moved.length===1?'':'s')+' moved from “'+boardTitle(curBoard)+'”.';
+        }
+        if(!cleanName(nm)){var e=$('#nb-err');e.textContent='Give the new board a name.';e.hidden=false;$('#nb-name').focus();return}
+        var b=await createBoard(nm,init);
+        toast('Board “'+b.title+'” created. '+msg,5000);
+      }
+    }});
+}
 
 /* ---------- chrome (header, filters, banner) ---------- */
 function syncChrome(){
   var title=state.meta.title||'Lab Task Board';
   document.title=title;
+  syncRegistryTitle(title);renderTabs();
   if(!$('#title-in')){$('#title-text').textContent=title;$('#title-btn').setAttribute('aria-label','Board title: '+title+'. Click to rename.')}
   $$('.tabs button').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.view===ui.view))});
   document.body.classList.toggle('hide-tl',ui.view==='timeline');
@@ -736,13 +996,14 @@ function syncChrome(){
   fa.value=ca;if(fa.value!==ca){ui.f.assignee='';fa.value=''}
   $('#flt-overdue').setAttribute('aria-pressed',String(ui.f.overdue));
   $('#flt-clear').hidden=!(ui.f.project||ui.f.assignee||ui.f.q||ui.f.overdue);
-  var open=state.tasks.filter(function(t){return !isDone(t)});
+  var open=state.tasks.filter(function(t){return !t.archived&&!isDone(t)});
   var over=open.filter(function(t){return t.due&&toDay(t.due)<TODAY}).length;
   var soon=open.filter(function(t){if(!t.due)return false;var d=toDay(t.due)-TODAY;return d>=0&&d<=7}).length;
   var done7=state.tasks.filter(function(t){return isDone(t)&&t.doneAt&&(TODAY-Math.floor(Date.parse(t.doneAt)/DAY))<=7}).length;
   $('#stats').innerHTML='<span><b>'+open.length+'</b> open</span><span class="'+(over?'bad':'')+'"><b>'+over+'</b> overdue</span><span><b>'+soon+'</b> due in 7 days</span><span><b>'+done7+'</b> done this week</span>';
   var last=Math.max(state.meta.lastBackupAt?Date.parse(state.meta.lastBackupAt):0,ab.state==='on'?ab.lastAt:0);
   $('#btn-backup').classList.toggle('stale',!last||(Date.now()-last)>7*DAY);
+  var na=state.tasks.filter(isArch).length;$('#btn-archive').hidden=!na;$('#arch-n').textContent=na;
   var b=$('#banner');
   if(state.meta.sample){
     b.innerHTML='<div class="banner"><span><strong>Example lab data is loaded.</strong> Edit, drag and explore it, then remove it when you are ready to start your own board.</span><span class="sp"></span><button class="btn edit-only" type="button" data-act="clear-sample">Remove example data</button></div>';
@@ -758,7 +1019,7 @@ function getLanes(){
   if(g==='priority')return PRIORITIES.map(function(p){return {key:p.key,label:p.label,pri:p}});
   if(g==='project'){
     var l=state.projects.map(function(p){return {key:p.id,label:p.name,color:p.color}});
-    if(state.tasks.some(function(t){return !projKey(t)}))l.push({key:'',label:'No project',color:'#6B7A8C'});
+    if(state.tasks.some(function(t){return !t.archived&&!projKey(t)}))l.push({key:'',label:'No project',color:'#6B7A8C'});
     return l;
   }
   if(g==='assignee'){return people().map(function(n){return {key:n,label:n}}).concat([{key:'',label:'Unassigned'}])}
@@ -777,7 +1038,8 @@ function dueInfo(t){
 function cardHtml(t){
   var p=projectOf(projKey(t)),di=dueInfo(t),pr=PRIORITIES.find(function(x){return x.key===t.priority});
   return '<article class="card'+(isDone(t)?' is-done':'')+'" draggable="'+(readOnly?'false':'true')+'" tabindex="0" data-id="'+esc(t.id)+'" style="--pc:'+esc(cardColor(t))+'" aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight">'
-    +'<div class="card-top"><span class="ref">'+esc(t.ref)+'</span>'+(p?'<span class="chip" style="--pc:'+esc(p.color)+'"><i></i><span>'+esc(p.name)+'</span></span>':'')+'</div>'
+    +'<div class="card-top"><span class="ref">'+esc(t.ref)+'</span>'+(p?'<span class="chip" style="--pc:'+esc(p.color)+'"><i></i><span>'+esc(p.name)+'</span></span>':'')
+    +(isDone(t)&&!readOnly?'<button class="arch" type="button" data-act="archive" data-id="'+esc(t.id)+'" title="Archive: take it off the board but keep it" aria-label="Archive '+esc(t.ref)+'">'+ICON.box+'</button>':'')+'</div>'
     +'<h4>'+esc(t.title)+'</h4>'
     +'<div class="card-meta"><span class="badge" title="Priority">'+pr.short+'</span>'
     +(di?'<span class="badge '+di.cls+'" title="Deadline '+esc(t.due)+'">'+esc(di.txt)+'</span>':'')
@@ -809,6 +1071,7 @@ function renderBoard(){
   // One pass buckets every task; counts come from the same pass.
   var bucket=Object.create(null),shown=Object.create(null),all=Object.create(null),laneN=Object.create(null);
   state.tasks.forEach(function(t){
+    if(t.archived)return;
     var sk=stageKey(t);all[sk]=(all[sk]||0)+1;
     if(!visible(t))return;
     var lk=laneKey(t),k=cellId(lk,sk);shown[sk]=(shown[sk]||0)+1;laneN[lk]=(laneN[lk]||0)+1;
@@ -817,7 +1080,9 @@ function renderBoard(){
   var parts=[['corner','<div class="corner" data-k="corner">'+(g==='none'?'':esc({priority:'Priority',project:'Project',assignee:'Assignee'}[g]))+rzHandle(LANE_COL,'swimlane labels')+'</div>']];
   stages.forEach(function(s){
     var n=all[s.id]||0;
-    parts.push(['s:'+s.id,'<div class="stage-head" data-k="'+esc('s:'+s.id)+'" data-stage="'+esc(s.id)+'">'+(s.done?ICON.check:'')+'<h3>'+esc(s.name)+'</h3><span class="count">'+(shown[s.id]||0)+'</span>'
+    parts.push(['s:'+s.id,'<div class="stage-head" data-k="'+esc('s:'+s.id)+'" data-stage="'+esc(s.id)+'">'+(s.done?ICON.check:'')
+      +'<h3>'+(readOnly?esc(s.name):'<button class="st-name" type="button" data-act="rename-stage" data-id="'+esc(s.id)+'" title="Click to rename this column">'+esc(s.name)+'</button>')+'</h3><span class="count">'+(shown[s.id]||0)+'</span>'
+      +(s.done&&shown[s.id]&&!readOnly?'<button class="st-arch" type="button" data-act="archive-col" data-stage="'+esc(s.id)+'" title="Archive the '+(shown[s.id])+' card'+(shown[s.id]===1?'':'s')+' shown in this column" aria-label="Archive the cards shown in '+esc(s.name)+'">'+ICON.box+'</button>':'')
       +(s.wip?'<span class="wip'+(n>s.wip?' over':'')+'" title="Work-in-progress limit">'+n+' / '+s.wip+'</span>':'')+rzHandle(s.id,s.name)+'</div>']);
   });
   lanes.forEach(function(L){
@@ -888,7 +1153,7 @@ function applyMove(id,stageId,lane,beforeId){
   else if(g==='project')t.projectId=lane;
   else if(g==='assignee')t.assignee=lane;
   syncDone(t);
-  var list=state.tasks.filter(function(x){return x.id!==id&&stageKey(x)===stageId&&(g==='none'||laneKey(x)===laneKey(t))}).sort(byOrder);
+  var list=state.tasks.filter(function(x){return x.id!==id&&!x.archived&&stageKey(x)===stageId&&(g==='none'||laneKey(x)===laneKey(t))}).sort(byOrder);
   var idx=beforeId?list.findIndex(function(x){return x.id===beforeId}):-1;
   // Renumber the cell instead of averaging neighbours: averaging runs out of float precision after ~50 drops.
   list.splice(idx<0?list.length:idx,0,t);
@@ -959,7 +1224,7 @@ function tlSection(p,all){
 function renderTimeline(){
   var root=$('#view');
   if(!state.tasks.length){renderBoard();return}
-  var by=Object.create(null);state.tasks.forEach(function(t){var k=projKey(t);(by[k]||(by[k]=[])).push(t)});
+  var by=Object.create(null);state.tasks.forEach(function(t){if(t.archived)return;var k=projKey(t);(by[k]||(by[k]=[])).push(t)});
   var projs=state.projects.filter(function(p){return !ui.f.project||p.id===ui.f.project});
   var h='';
   projs.forEach(function(p){h+=tlSection(p,by[p.id]||[])});
@@ -969,7 +1234,7 @@ function renderTimeline(){
 }
 function render(){
   if(!state){return}
-  if(loaded&&!ab.started){ab.started=true;setTimeout(abInit,300)}
+  if(loaded&&ab.board!==curBoard){ab.board=curBoard;setTimeout(abInit,300)}
   syncChrome();
   if(ui.view==='timeline')renderTimeline();else renderBoard();
 }
@@ -989,7 +1254,7 @@ function openModal(o){
 function formSnap(){return $$('#modal input,#modal select,#modal textarea,#modal [aria-pressed]').map(function(e){return e.type==='checkbox'?e.checked:e.hasAttribute('aria-pressed')?e.getAttribute('aria-pressed'):e.value}).join('\u0001')}
 // Escape and backdrop clicks ask twice when the dialog has edits; Cancel and the close button still close at once.
 function requestClose(){
-  if(cur&&!readOnly&&!cur.armedClose&&formSnap()!==cur.snap){
+  if(cur&&!readOnly&&!cur.noDirty&&!cur.armedClose&&formSnap()!==cur.snap){
     var c=cur;c.armedClose=true;toast('Unsaved changes. Press Esc or click outside again to discard them.',4000);
     setTimeout(function(){c.armedClose=false},4000);return;
   }
@@ -1060,7 +1325,7 @@ function openTask(id,preset){
     +'<label class="chk span2"><input id="f-blocked" type="checkbox"'+(d.blocked?' checked':'')+'> Blocked (waiting on a reagent, instrument time or an approval)</label>'
     +'<p class="form-err" id="f-err" role="alert" hidden></p></fieldset></form>';
   var foot=readOnly?'<span class="sp"></span><button class="btn" type="button" data-close>Close</button>'
-    :(ex?'<button class="btn danger" type="button" data-m="delete">Delete</button>':'')+'<span class="sp"></span><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-m="save">Save task</button>';
+    :(ex?'<button class="btn danger" type="button" data-m="delete">Delete</button>':'')+(ex&&isDone(ex)?'<button class="btn" type="button" data-m="archive" title="Take it off the board but keep it">Archive</button>':'')+'<span class="sp"></span><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-m="save">Save task</button>';
   var armed=false;
   openModal({title:ex?ex.ref+'  ·  Edit task':'New task',body:body,foot:foot,
     mount:function(){
@@ -1071,6 +1336,7 @@ function openTask(id,preset){
     },
     action:function(name,btn){
       if(name==='save'){save();return}
+      if(name==='archive'){if(save()){var at=state.tasks.find(function(x){return x.id===ex.id});if(at)archiveTasks([at])}return}
       if(name==='pick'){color=btn.dataset.c||'';syncPicker('task',color,color||'Project color');return}
       if(name==='delete'){
         if(!armed){armed=true;btn.classList.add('armed');btn.textContent='Click again to delete';return}
@@ -1093,7 +1359,7 @@ function openTask(id,preset){
     if(ex&&!t){
       // Deleted by someone else while this dialog was open: keep the user's work as a restored task.
       t=Object.assign({},ex,vals,{order:nextOrder(vals.stageId)});delete t.sample;state.tasks.push(t);syncDone(t);
-      commit();closeModal();toast(ex.ref+' was deleted by someone else. Your version was restored.',5000);return;
+      commit();closeModal();toast(ex.ref+' was deleted by someone else. Your version was restored.',5000);return true;
     }
     if(t){
       var moved=stageKey(t)!==vals.stageId;
@@ -1102,7 +1368,7 @@ function openTask(id,preset){
       var n=Object.assign({id:uid('t_'),ref:'T-'+String(state.meta.nextNum++).padStart(3,'0'),createdAt:new Date().toISOString(),doneAt:'',order:nextOrder(vals.stageId)},vals);
       state.tasks.push(n);syncDone(n);
     }
-    commit();closeModal();
+    commit();closeModal();return true;
   }
 }
 
@@ -1216,11 +1482,11 @@ function openProjects(){
 /* ---------- backup dialog ---------- */
 function backupJson(){return JSON.stringify(state,null,2)}
 function csvText(){
-  var cols=['ref','title','project','stage','priority','assignee','start','due','blocked','created','completed','color','notes'];
+  var cols=['ref','title','project','stage','priority','assignee','start','due','blocked','created','completed','archived','color','notes'];
   // Cells starting with = + - @ tab or CR run as formulas in Excel and Sheets; a leading ' keeps them as text.
   var q=function(v){v=String(v==null?'':v);if(/^[=+\-@\t\r]/.test(v))v="'"+v;return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   var rows=state.tasks.slice().sort(byOrder).map(function(t){var p=projectOf(projKey(t)),s=stageOf(stageKey(t));
-    return [t.ref,t.title,p?p.name:'',s.name,t.priority,t.assignee,t.start,t.due,t.blocked?'yes':'no',t.createdAt,t.doneAt,cardColor(t),t.desc].map(q).join(',')});
+    return [t.ref,t.title,p?p.name:'',s.name,t.priority,t.assignee,t.start,t.due,t.blocked?'yes':'no',t.createdAt,t.doneAt,t.archivedAt||'',cardColor(t),t.desc].map(q).join(',')});
   return '﻿'+cols.join(',')+'\r\n'+rows.join('\r\n')+'\r\n';
 }
 async function saveFile(name,data){
@@ -1243,16 +1509,16 @@ function openBackup(){
     +'<details style="margin-top:10px" id="b-det"><summary class="hint" style="cursor:pointer">Show backup text</summary><textarea class="json" id="b-text" rows="6" readonly></textarea></details></div>'
     +'<div class="sec edit-only"><h3>Restore from a backup</h3><p class="hint">Restoring replaces everything on the board with the contents of the file. You can undo it for a few seconds afterwards.</p>'
     +'<input id="b-file" type="file" accept=".json,application/json"><p class="msg" id="r-msg" role="status" hidden></p>'
-    +'<div style="margin-top:10px"><button class="btn danger" type="button" id="b-restore" data-m="restore" disabled>Replace board with this backup</button></div></div>';
+    +'<div style="margin-top:10px"><button class="btn danger" type="button" id="b-restore" data-m="restore" disabled>Replace this board with the backup</button> <button class="btn" type="button" id="b-restore-new" data-m="restore-new" disabled>Open it as a new board</button></div></div>';
   openModal({title:'Backup and restore',wide:true,noFocus:true,body:body,foot:'<span class="sp"></span><button class="btn" type="button" data-close>Done</button>',
     mount:function(){
       $('#b-text').value=backupJson();
       $('#b-file').addEventListener('change',function(ev){
-        var f=ev.target.files&&ev.target.files[0],m=$('#r-msg'),b=$('#b-restore');pending=null;b.disabled=true;
+        var f=ev.target.files&&ev.target.files[0],m=$('#r-msg'),b=$('#b-restore'),bn=$('#b-restore-new');pending=null;b.disabled=true;bn.disabled=true;
         if(!f){m.hidden=true;return}
         var rd=new FileReader();
         rd.onload=function(){
-          try{var s=normalize(JSON.parse(String(rd.result)));pending=s;b.disabled=false;
+          try{var s=normalize(JSON.parse(String(rd.result)));pending=s;b.disabled=false;bn.disabled=readOnly;
             m.className='msg ok';m.textContent=f.name+': '+s.projects.length+' projects, '+s.stages.length+' stages, '+s.tasks.length+' tasks.';}
           catch(e){m.className='msg err';m.textContent=(e&&e.message)||'That file could not be read as a backup.'}
           m.hidden=false;
@@ -1269,16 +1535,18 @@ function openBackup(){
         var sec=$('#ab-sec');if(sec)sec.innerHTML=abSectionHtml();return;
       }
       if(name==='dl-json'){
-        var r=await saveFile('lab-board-backup-'+isoLocal(new Date())+'.json',backupJson());
+        var r=await saveFile(slug(state.meta.title)+'-backup-'+isoLocal(new Date())+'.json',backupJson());
         if(r==='ok'){state.meta.lastBackupAt=new Date().toISOString();commit();say('Backup saved.','ok')}
         else if(r==='declined')say('Download cancelled.');
         else{$('#b-det').open=true;say('Downloads are not available in this view. Use Copy backup JSON, or copy the text below into a file.','err')}
       }else if(name==='dl-csv'){
-        var r2=await saveFile('lab-board-tasks-'+isoLocal(new Date())+'.csv',csvText());
+        var r2=await saveFile(slug(state.meta.title)+'-tasks-'+isoLocal(new Date())+'.csv',csvText());
         if(r2==='ok')say('CSV saved.','ok');else if(r2==='declined')say('Download cancelled.');else say('Downloads are not available in this view.','err');
       }else if(name==='copy'){
         try{await navigator.clipboard.writeText(backupJson());state.meta.lastBackupAt=new Date().toISOString();commit();say('Backup copied to the clipboard.','ok')}
         catch(e){var ta=$('#b-text');$('#b-det').open=true;ta.focus();ta.select();say('Copy was blocked. The text is selected below, press Ctrl+C or Cmd+C.','err')}
+      }else if(name==='restore-new'&&pending){
+        var nb=await createBoard(pending.meta.title||'Restored board',pending);toast('Backup opened as the new board “'+nb.title+'”.',5000);
       }else if(name==='restore'&&pending){
         var snap=JSON.stringify(state);
         state=pending;state.meta.sample=!!state.meta.sample;commit();closeModal();offerUndo('Backup restored',snap);
@@ -1292,8 +1560,12 @@ function openBackup(){
    remembered in this browser; after a browser restart Chrome asks once to allow writing again, unless the
    user chose "Allow on every visit". Other browsers and embedded views cannot do this. */
 var AB_HANDLE='backupHandle', AB_TIME='labboard.autobackup.at';
+// Each board has its own backup file; the first board keeps the original keys.
+function abKeyFor(id){return id===MAIN?AB_HANDLE:AB_HANDLE+':'+id}
+function abTimeKey(){return curBoard===MAIN?AB_TIME:AB_TIME+':'+curBoard}
+function abReset(){clearTimeout(ab.timer);ab.timer=null;ab.handle=null;ab.state='off';ab.err='';ab.lastAt=0;ab.board=null;syncAbChip()}
 var ab={supported:typeof window.showSaveFilePicker==='function'&&window.self===window.top,embedded:window.self!==window.top,
-  handle:null,state:'off',lastAt:0,timer:null,writing:false,again:false,err:'',db:null,started:false};
+  handle:null,state:'off',lastAt:0,timer:null,writing:false,again:false,err:'',db:null,board:null,asked:{}};
 function abName(){return ab.handle&&ab.handle.name?ab.handle.name:'the backup file'}
 function abTime(){return ab.lastAt?new Date(ab.lastAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):''}
 var BROWSER_REQ='<span class="browser-req">Works only in Chrome or Edge on a computer</span>';
@@ -1305,27 +1577,31 @@ function syncAbChip(){
   c.title=ab.state==='on'?'Writing to '+abName()+(ab.lastAt?', last saved '+abTime():''):ab.state==='paused'?'Click to resume writing to '+abName():ab.state==='error'?ab.err:'Click to choose a backup file location';
 }
 async function abInit(){
-  try{ab.lastAt=+localStorage.getItem(AB_TIME)||0}catch(e){}
+  var bid=curBoard;
+  try{ab.lastAt=+localStorage.getItem(abTimeKey())||0}catch(e){}
   syncAbChip();
   if(!ab.supported){if(!ui.abNoticeSeen&&!readOnly&&$('#overlay').hidden)openAbUnsupported();return}
-  try{ab.db=idb||await idbOpen()}catch(e){ab.db=null}
-  var h=null;try{if(ab.db)h=await idbTx('readonly',function(s){return s.get(AB_HANDLE)},ab.db)}catch(e){}
+  try{ab.db=ab.db||idb||await idbOpen()}catch(e){ab.db=null}
+  var h=null;try{if(ab.db)h=await idbTx('readonly',function(s){return s.get(abKeyFor(bid))},ab.db)}catch(e){}
+  if(bid!==curBoard)return;
   if(h){
     ab.handle=h;var p='prompt';try{p=await h.queryPermission({mode:'readwrite'})}catch(e){}
+    if(bid!==curBoard)return;
     if(p==='granted'){ab.state='on';syncAbChip();abWrite()}
-    else{ab.state='paused';syncAbChip();if($('#overlay').hidden&&!readOnly)openAbReconnect()}
+    else{ab.state='paused';syncAbChip();if($('#overlay').hidden&&!readOnly&&!ab.asked[bid]){ab.asked[bid]=1;openAbReconnect()}}
     return;
   }
-  if(!ui.abDontAsk&&!readOnly&&$('#overlay').hidden)openAbSetup();
+  // Ask once per board per visit.
+  if(!ui.abDontAsk&&!readOnly&&$('#overlay').hidden&&!ab.asked[bid]){ab.asked[bid]=1;openAbSetup()}
 }
 function abSchedule(ms){if(ab.state!=='on')return;clearTimeout(ab.timer);ab.timer=setTimeout(function(){ab.timer=null;abWrite()},ms==null?1500:ms)}
 async function abWrite(){
-  if(!ab.handle||!state)return;
+  if(!ab.handle||!state||!loaded)return;
   if(ab.writing){ab.again=true;return}
   ab.writing=true;
   try{
     var w=await ab.handle.createWritable();await w.write(backupJson());await w.close();
-    ab.lastAt=Date.now();ab.state='on';ab.err='';try{localStorage.setItem(AB_TIME,String(ab.lastAt))}catch(e){}
+    ab.lastAt=Date.now();ab.state='on';ab.err='';try{localStorage.setItem(abTimeKey(),String(ab.lastAt))}catch(e){}
   }catch(e){abFail(e)}
   ab.writing=false;syncAbChip();
   var last=Math.max(state.meta.lastBackupAt?Date.parse(state.meta.lastBackupAt):0,ab.state==='on'?ab.lastAt:0);
@@ -1345,10 +1621,12 @@ function abFail(e){
 // Must run from a click: browsers only open the save dialog in response to a user action.
 async function abChoose(){
   var h;
-  try{h=await window.showSaveFilePicker({suggestedName:'lab-board-backup.json',types:[{description:'Lab board backup',accept:{'application/json':['.json']}}]})}
+  var bid=curBoard;
+  try{h=await window.showSaveFilePicker({suggestedName:slug(boardTitle(bid))+'-backup.json',types:[{description:'Lab board backup',accept:{'application/json':['.json']}}]})}
   catch(e){if(e&&e.name==='AbortError')return false;abFail(e);return false}
+  if(bid!==curBoard)return false;
   ab.handle=h;ab.state='on';ui.abDontAsk=false;savePrefs();
-  try{if(ab.db)await idbTx('readwrite',function(s){return s.put(h,AB_HANDLE)},ab.db)}catch(e){}
+  try{if(ab.db)await idbTx('readwrite',function(s){return s.put(h,abKeyFor(bid))},ab.db)}catch(e){}
   await abWrite();
   if(ab.state==='on')toast('Automatic backup on. Saving to '+abName()+' after every change.',5000);
   return ab.state==='on';
@@ -1361,7 +1639,7 @@ async function abResume(){
 }
 async function abOff(){
   clearTimeout(ab.timer);ab.handle=null;ab.state='off';ab.err='';
-  try{if(ab.db)await idbTx('readwrite',function(s){return s.delete(AB_HANDLE)},ab.db)}catch(e){}
+  try{if(ab.db)await idbTx('readwrite',function(s){return s.delete(abKeyFor(curBoard))},ab.db)}catch(e){}
   syncAbChip();toast('Automatic backup turned off. The existing file was left in place.',4000);
 }
 function abSectionHtml(){
@@ -1379,9 +1657,9 @@ function abSectionHtml(){
     +'<p class="ab-note">Tip: pick a folder that syncs to the cloud (Dropbox, OneDrive, Google Drive, iCloud Drive) so the copy also survives losing this computer. For privacy the browser never shows the folder path, only the file name. To restore, use <strong>Restore from a backup</strong> below and pick that file.</p></div>';
 }
 function openAbSetup(){
-  openModal({title:'Set up automatic backup',noFocus:true,
+  openModal({title:'Set up automatic backup',noDirty:true,noFocus:true,
     body:'<p class="ab-note" style="margin-bottom:10px">'+BROWSER_REQ+'</p>'
-      +'<p>Keep a copy of this board in a file on your computer. Choose where to save it and the board writes <strong>lab-board-backup.json</strong> there a moment after every change, so restarts, cleared browser data or a new computer cannot wipe out your work.</p>'
+      +'<p>Keep a copy of '+(boards.length>1?'the board <strong>“'+esc(boardTitle(curBoard))+'”</strong>':'this board')+' in a file on your computer. Choose where to save it and the board writes <strong>'+esc(slug(boardTitle(curBoard)))+'-backup.json</strong> there a moment after every change, so restarts, cleared browser data or a new computer cannot wipe out your work.</p>'
       +'<p class="hint">Good choice: a folder that syncs to the cloud (Dropbox, OneDrive, Google Drive, iCloud Drive). After the browser restarts, Chrome or Edge asks once to allow writing to the file again; pick <strong>Allow on every visit</strong> if offered to skip that.</p>'
       +'<label class="chk"><input type="checkbox" id="ab-dont"> Don\'t ask again when I open the board</label>',
     foot:'<span class="sp"></span><button class="btn ghost" type="button" data-m="ab-later">Not now</button><button class="btn primary" type="button" data-m="ab-choose">Choose location…</button>',
@@ -1407,6 +1685,61 @@ function openAbUnsupported(){
     action:function(name){if(name==='ab-ok'){ui.abNoticeSeen=true;savePrefs();closeModal()}}});
 }
 
+/* ---------- archive: finished cards can be taken off the board and kept ---------- */
+function archiveTasks(list,label){
+  list=list.filter(function(t){return !t.archived});if(!list.length)return;
+  var snap=JSON.stringify(state),now=new Date().toISOString();
+  list.forEach(function(t){t.archived=true;t.archivedAt=now});
+  commit();
+  offerUndo(label||(list.length===1?list[0].ref+' archived. Find it under Archived.':list.length+' cards archived. Find them under Archived.'),snap);
+}
+function openArchive(){
+  var q='',limit=100,armed=null;
+  function rows(){
+    var list=state.tasks.filter(isArch).filter(function(t){return !q||(t.title+' '+t.ref+' '+t.desc+' '+t.assignee).toLowerCase().indexOf(q)>=0})
+      .sort(function(a,b){return (b.archivedAt||'').localeCompare(a.archivedAt||'')});
+    if(!list.length)return '<p class="hint">'+(q?'No archived cards match.':'No archived cards on this board.')+'</p>';
+    return list.slice(0,limit).map(function(t){
+      var p=projectOf(projKey(t)),st=stageOf(stageKey(t)),d=t.archivedAt&&!isNaN(Date.parse(t.archivedAt))?fmtShort(isoLocal(new Date(t.archivedAt))):'';
+      return '<div class="arow" style="--pc:'+esc(cardColor(t))+'"><div class="amain"><span class="ref">'+esc(t.ref)+'</span><span class="atitle">'+esc(t.title)+'</span>'
+        +'<span class="ameta">'+(p?esc(p.name)+' · ':'')+esc(st.name)+(d?' · archived '+esc(d):'')+'</span></div>'
+        +(readOnly?'':'<div class="abtns"><button class="btn sm" type="button" data-m="a-restore" data-id="'+esc(t.id)+'">Restore</button>'
+          +'<button class="btn sm danger'+(armed===t.id?' armed':'')+'" type="button" data-m="a-del" data-id="'+esc(t.id)+'">'+(armed===t.id?'Delete permanently':'Delete')+'</button></div>')+'</div>';
+    }).join('')+(list.length>limit?'<button class="more" type="button" data-m="a-more">Show '+(list.length-limit)+' more</button>':'');
+  }
+  function paint(){var l=$('#a-list');if(l)l.innerHTML=rows()}
+  openModal({title:'Archived cards',wide:true,noFocus:true,noDirty:true,
+    body:'<p class="hint">Archived cards are off the board but kept: they stay in backups and CSV exports and can be restored to their column at any time.</p>'
+      +'<input type="search" id="a-q" class="a-q" placeholder="Search archived cards" aria-label="Search archived cards"><div id="a-list">'+rows()+'</div>',
+    foot:'<span class="sp"></span><button class="btn" type="button" data-close>Done</button>',
+    mount:function(){$('#a-q').addEventListener('input',function(e){q=e.target.value.trim().toLowerCase();paint()})},
+    action:function(name,btn){
+      var id=btn.dataset.id,t=id&&state.tasks.find(function(x){return x.id===id});
+      if(name==='a-more'){limit+=200;paint();return}
+      if(name==='a-restore'&&t){delete t.archived;delete t.archivedAt;armed=null;commit();paint();toast(t.ref+' is back in '+stageOf(stageKey(t)).name+'.');return}
+      if(name==='a-del'&&t){
+        if(armed!==id){armed=id;paint();return}
+        var snap=JSON.stringify(state);state.tasks=state.tasks.filter(function(x){return x.id!==id});armed=null;commit();paint();offerUndo(t.ref+' deleted permanently',snap);
+      }
+    }});
+}
+// Click a column name to rename it (the Stages dialog does the same, plus order, WIP limits and done flags).
+function renameStage(btn){
+  var id=btn.dataset.id,s=stageOf(id);if(!s||readOnly)return;
+  var inp=document.createElement('input');inp.className='st-in';inp.maxLength=40;inp.value=s.name;inp.setAttribute('aria-label','Column name');
+  btn.replaceWith(inp);inp.focus();inp.select();
+  var done=false;
+  function finish(save){
+    if(done)return;done=true;
+    var v=cleanName(inp.value).slice(0,40);
+    if(save&&v&&v!==s.name){state.stages=state.stages.map(function(x){return x.id===id?Object.assign({},x,{name:v}):x});commit()}
+    else if(inp.parentNode)inp.replaceWith(btn);
+  }
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();finish(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();finish(false)}});
+  inp.addEventListener('blur',function(){finish(true)});
+  inp.addEventListener('click',function(e){e.stopPropagation()});
+}
+
 /* ---------- event wiring ---------- */
 var suppressClickAt=0;
 document.addEventListener('click',function(e){
@@ -1417,6 +1750,15 @@ document.addEventListener('click',function(e){
   var a=e.target.closest('[data-act]');
   if(a){
     var k=a.dataset.act;
+    if(k==='board-go'){switchBoard(a.dataset.id);return}
+    if(k==='board-close'){closeTab(a.dataset.id);return}
+    if(k==='boards'){if(state&&loaded)openBoards();return}
+  }
+  if(!state||!loaded)return;
+  if(a){
+    if(k==='rename-stage'){renameStage(a);return}
+    if(k==='archive'){var at=state.tasks.find(function(x){return x.id===a.dataset.id});if(at)archiveTasks([at]);return}
+    if(k==='archive-col'){archiveTasks(state.tasks.filter(function(t){return !t.archived&&stageKey(t)===a.dataset.stage&&visible(t)}));return}
     if(k==='toggle-lane'){ui.collapsed[a.dataset.key]=!ui.collapsed[a.dataset.key];savePrefs();render();return}
     if(k==='more'){ui.expanded[a.dataset.key]=true;render();return}
     if(k==='less'){delete ui.expanded[a.dataset.key];render();return}
@@ -1480,11 +1822,13 @@ document.addEventListener('keydown',function(e){
     toast('Moved to '+state.stages[j].name);
   }
 });
-$('#btn-new').addEventListener('click',function(){openTask(null)});
-$('#btn-projects').addEventListener('click',openProjects);
-$('#btn-stages').addEventListener('click',openStages);
-$('#btn-backup').addEventListener('click',openBackup);
-$('#ab-chip').addEventListener('click',function(){if(ab.state==='paused')abResume();else openBackup()});
+function whenReady(fn){return function(){if(state&&loaded)fn()}}
+$('#btn-new').addEventListener('click',whenReady(function(){openTask(null)}));
+$('#btn-projects').addEventListener('click',whenReady(openProjects));
+$('#btn-stages').addEventListener('click',whenReady(openStages));
+$('#btn-backup').addEventListener('click',whenReady(openBackup));
+$('#btn-archive').addEventListener('click',whenReady(openArchive));
+$('#ab-chip').addEventListener('click',whenReady(function(){if(ab.state==='paused')abResume();else openBackup()}));
 document.addEventListener('visibilitychange',function(){if(document.hidden&&ab.timer){clearTimeout(ab.timer);ab.timer=null;abWrite()}});
 $$('.tabs button').forEach(function(b){b.addEventListener('click',function(){ui.view=b.dataset.view;savePrefs();render()})});
 $('#grp').addEventListener('change',function(e){ui.groupBy=e.target.value;savePrefs();render()});

@@ -27,6 +27,11 @@ const total = (p) => p.$$eval('.stage-head .count', (c) => c.reduce((s, e) => s 
     await touch('touchStart', from.x + 20, from.y + 20); await touch('touchMove', from.x + 120, from.y + 25); await touch('touchEnd');
     await page.waitForTimeout(400);
     const afterSwipe = await stageOfCard(page, 'Drag me');
+    const scrolledBy = await page.$eval('.board-wrap', (w) => w.scrollLeft);
+    await page.$eval('.board-wrap', (w) => { w.scrollLeft = 0 });
+    const pageScrollY = await page.evaluate(() => window.scrollY);
+    Object.assign(from, await page.locator('.card:has-text("Drag me")').boundingBox());
+    Object.assign(to, await page.locator('.cell[data-stage=st_prog]').boundingBox());
     // b) tap opens the card
     await page.touchscreen.tap(from.x + 20, from.y + 20); await page.waitForTimeout(200);
     const tapOpens = await page.$eval('#overlay', (o) => !o.hidden); if (tapOpens) await page.click('[data-close]');
@@ -38,7 +43,7 @@ const total = (p) => p.$$eval('.stage-head .count', (c) => c.reduce((s, e) => s 
     // hold near the right edge until the target column scrolls under the finger
     for (let i = 0; i < 40 && !(await page.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); return !!(e && e.closest('.cell[data-stage=st_prog]')) }, [tx, ty])); i++) { await touch('touchMove', tx, ty); await page.waitForTimeout(40); }
     await touch('touchEnd'); await page.waitForTimeout(300);
-    log({ test: 'touch', swipeMovedCard: afterSwipe !== 'st_todo', tapOpensDialog: tapOpens, liftedAfterHold: lifted === 1, stageAfterDrag: await stageOfCard(page, 'Drag me'), dialogOpenAfterDrop: await page.$eval('#overlay', (o) => !o.hidden), ghostsLeft: await page.$$eval('.drag-ghost', (g) => g.length), errors: errs });
+    log({ test: 'touch', swipeMovedCard: afterSwipe !== 'st_todo', swipeScrolledBoardPx: scrolledBy, swipeScrolledPageY: pageScrollY, tapOpensDialog: tapOpens, liftedAfterHold: lifted === 1, stageAfterDrag: await stageOfCard(page, 'Drag me'), dialogOpenAfterDrop: await page.$eval('#overlay', (o) => !o.hidden), ghostsLeft: await page.$$eval('.drag-ghost', (g) => g.length), errors: errs });
     await ctx.close();
   }
 

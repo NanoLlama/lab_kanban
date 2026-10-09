@@ -185,10 +185,50 @@ Removing a stage now asks where its tasks should go (a dropdown of the other sta
 
 How it was tested: headless Chrome can't show the native Save dialog, so the test hands the page a real browser file handle in its place. Writing, remembering the handle and permission checks run through the real browser APIs. Opened as a plain `file://` page, Chrome allows the picker (it returned "user cancelled", not a security error). One step still needs a person: a real save to your disk in desktop Chrome or Edge.
 
+## Round 5: multiple boards as tabs, column names, archiving
+
+### Multiple boards, open as tabs
+- Each board is fully separate: its own columns, projects, cards, title, column widths and automatic-backup file. A board for one project never mixes with another.
+- **Tabs** across the top show the open boards; click one to switch. **×** closes a tab without deleting the board (the last open tab can't be closed). Open tabs and the active tab are remembered.
+- **+ Boards** opens the Boards panel:
+  - **New board**, starting *empty with the standard columns*, *with the same columns as the current board*, or **by moving one project and its cards out of the current board** (to split an existing mixed board).
+  - **All boards**: open any board in a tab, or delete one (two clicks; deleting cannot be undone, so the panel says to back it up first).
+- Switching boards first writes the board being left, so a change made a split second before switching is kept (tested).
+- **Backup → Restore** can now also **open a backup as a new board** instead of replacing the current one.
+- Storage: the existing board stays where it was (nothing to migrate). New boards are stored next to it, in this browser or in the shared store (`boards/<id>`, `boards/<id>/tasks/*`, listed in `boardlist/<id>`). On a shared board, everyone sees new boards appear, and a board deleted by one person closes in everyone else's tabs with a notice.
+
+### Rename columns in place
+Click a column's name (To Do, In Progress, …), type, and press Enter. Esc cancels, and an empty name keeps the old one. The **Stages** button still offers the full editor (names, order, WIP limits, which columns count as done, add/remove).
+
+### Archive finished cards (optional, never automatic)
+- Cards in a *done* column show an **archive** icon (on hover, or always on touch screens). The done column's header has an icon that archives the cards it currently shows. A finished card's dialog has an **Archive** button, which saves any edits first.
+- Archived cards leave the board, the timeline, WIP counts and filters, but are **kept**: they stay in backups, the automatic backup file and CSV exports (new `archived` column).
+- **Archived (N)** in the header lists them, with search, **Restore** (back to its column) and **Delete** (two clicks, with Undo). Every archive action has Undo for 10 seconds.
+
+| Test (`stress/boards.js`, `stress/shared.js`) | Result |
+|---|---|
+| Move "Western blot optimization" to a new board | new tab with its 4 cards; first board keeps the other 16 |
+| Add a card, switch tabs instantly, switch back | card kept |
+| Column width in board A | board B unaffected (400 vs 300 px) |
+| Reload | same tabs, same active board, each board's own cards |
+| Close a tab, reopen from Boards | board and cards intact |
+| Delete a board | gone from the list and tabs; app switches to another board |
+| Restore a backup "as a new board" | new tab with the backup's own columns and cards; other boards untouched |
+| Archive one card / Undo / archive a whole done column | 20 → 19 → 20 → 17 cards on the board; "Archived 3" |
+| Archive dialog: search, Restore, Delete | finds by text; Restore puts it back in Done; delete leaves the rest |
+| After reload / in the backup | archived cards still archived and present in the backup |
+| Rename "To Do" → "Backlog"; Esc; blank name | renamed / unchanged / unchanged; Stages dialog agrees; survives reload |
+| Two people: A creates a board and adds a card | B sees the board in its list, opens it and sees the card |
+| A renames a column and archives a card | B's board updates live ("Queue", card gone, "Archived 1") |
+| A deletes the board | B's tab closes with "This board was deleted by someone else"; no documents left behind |
+
+Speed is unchanged: at 10,000 tasks, saving one card takes about 20 ms and page load 0.33 s.
+
 ## Known limits
 - Shared mode assumes a collection subscription delivers every task. The store documents queries as suited to "hundreds to low thousands" of documents and caps a database at 25,000. Past a few thousand tasks, archive Done tasks into a backup.
 - Two people saving the **same field** of the same task at the same instant: the last write wins (there are no transactions).
-- Undo restores the whole board as it was before the action. A change someone else made during those 10 seconds would be rolled back too.
+- Undo restores the whole board as it was before the action, so a change someone else made during those 10 seconds would be rolled back too. Deleting a whole board has no Undo; back it up first.
+- The same board open in two **browser** tabs on one computer (local mode) is not synced between them: the last tab to save wins. Use the in-app tabs instead, or shared mode.
 
 ## Re-running the harness
 

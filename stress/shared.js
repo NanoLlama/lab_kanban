@@ -39,12 +39,13 @@ const MOCK = `(function(){
   var cache=null, docL={}, colL={}, ready=null;
   function load(){return ready||(ready=window.__dbDump().then(function(e){cache=new Map(e)}))}
   function snapDoc(path){var j=cache.get(path);return {id:path.split('/').pop(),exists:j!=null,data:function(){return j!=null?JSON.parse(j):undefined},metadata:{fromCache:false,hasPendingWrites:false}}}
-  function colDocs(col){var out=[];cache.forEach(function(v,k){var s=k.split('/');if(s.length===2&&s[0]===col)out.push(snapDoc(k))});return out}
+  function parentOf(path){return path.slice(0,path.lastIndexOf('/'))}
+  function colDocs(col){var out=[];cache.forEach(function(v,k){if(parentOf(k)===col)out.push(snapDoc(k))});return out}
   window.__dbPush=function(path,json){
     if(!cache)return;
     var had=cache.has(path);if(json==null)cache.delete(path);else cache.set(path,json);
     (docL[path]||[]).forEach(function(f){f(snapDoc(path))});
-    var col=path.split('/')[0];
+    var col=parentOf(path);
     (colL[col]||[]).forEach(function(f){var d=snapDoc(path),ch=[{type:json==null?'removed':had?'modified':'added',doc:json==null?{id:d.id,exists:true,data:function(){return {}}}:d}];
       var docs=colDocs(col);f({docs:docs,size:docs.length,empty:!docs.length,docChanges:function(){return ch},metadata:{fromCache:false,hasPendingWrites:false}})});
   };
@@ -54,9 +55,11 @@ const MOCK = `(function(){
     set:function(b){return write('set',path,b)},update:function(b){return write('update',path,b)},delete:function(){return write('del',path)},
     onSnapshot:function(f){load().then(function(){(docL[path]=docL[path]||[]).push(f);f(snapDoc(path))});return function(){docL[path]=(docL[path]||[]).filter(function(x){return x!==f})}}}}
   function colRef(col){return {path:col,doc:function(id){return docRef(col+'/'+id)},
+    get:function(){return load().then(function(){var docs=colDocs(col);return {docs:docs,size:docs.length,empty:!docs.length}})},
     onSnapshot:function(f){load().then(function(){(colL[col]=colL[col]||[]).push(f);var docs=colDocs(col);
       f({docs:docs,size:docs.length,empty:!docs.length,docChanges:function(){return docs.map(function(d,i){return {type:'added',doc:d,oldIndex:-1,newIndex:i}})},metadata:{fromCache:false,hasPendingWrites:false}})});
       return function(){colL[col]=(colL[col]||[]).filter(function(x){return x!==f})}}}}
+    docRef.collection=undefined;
   window.claude={use:async function(n){if(n==='db')return {doc:docRef,collection:colRef};if(n==='user')return {can:async function(){return true}};return null}};
 })();`;
 
@@ -119,6 +122,32 @@ async function newTask(page, title) { await page.click('#btn-new'); await page.f
     await a.page.click('#title-btn'); await a.page.fill('#title-in', 'Shared Lab Board'); await a.page.keyboard.press('Enter');
     await settle(a.page, 900);
     log({ test: 'shared:title', bSees: await b.page.textContent('#title-text'), bTab: await b.page.title(), serverTitle: JSON.parse(S.docs.get('board/meta')).title });
+    await a.ctx.close(); await b.ctx.close();
+  }
+  // C3. Boards, archive and column names between two people.
+  {
+    const S = makeServer(); await S.seed('board/main', { json: JSON.stringify(v1(['Main card'])) });
+    const a = await client(S); await settle(a.page, 1000); const b = await client(S); await settle(b.page, 500);
+    const ready = (p) => p.waitForFunction(() => !document.querySelector('#view .loading'));
+    // A creates a board and adds a card there.
+    await a.page.click('[data-act=boards]'); await a.page.fill('#nb-name', 'Shared second board'); await a.page.click('[data-m=b-create]'); await ready(a.page);
+    await newTask(a.page, 'Card on board two'); await settle(a.page, 900);
+    // B sees it in the Boards list and opens it.
+    await b.page.click('[data-act=boards]');
+    const bList = await b.page.$$eval('.brow .bname', (n) => n.map((x) => x.textContent));
+    await b.page.click('.brow:has-text("Shared second board") [data-m=b-open]'); await ready(b.page); await settle(b.page, 400);
+    const bCards = await cards(b.page);
+    // A renames a column and archives the card after finishing it; B follows live.
+    await a.page.click('.stage-head .st-name'); await a.page.fill('.st-in', 'Queue'); await a.page.keyboard.press('Enter');
+    await a.page.click('.card'); await a.page.selectOption('#f-stage', { label: 'Done' }); await a.page.click('[data-m=save]');
+    await a.page.click('.card .arch'); await settle(a.page, 900);
+    const bAfter = { columns: await b.page.$$eval('.stage-head h3', (h) => h.map((x) => x.textContent)), cards: await cards(b.page), archivedBtn: await b.page.textContent('#btn-archive') };
+    const paths = [...S.docs.keys()].filter((k) => !k.startsWith('tasks/') && k !== 'board/main' && k !== 'board/meta').map((k) => k.replace(/b_[a-z0-9]+/g, '<id>').replace(/t_[a-z0-9]+$/, '<task>')).sort();
+    // A deletes the board; B's tab closes and B lands on the first board.
+    await a.page.click('[data-act=boards]'); await a.page.click('.brow:has-text("Shared second board") [data-m=b-del]'); await a.page.click('.brow:has-text("Shared second board") [data-m=b-del-ok]');
+    await settle(a.page, 1200);
+    log({ test: 'shared:boards', bList, bCards, bAfter, storedPaths: [...new Set(paths)], bTabsAfterDelete: await b.page.$$eval('.btab-go', (t) => t.map((x) => x.textContent)), bToast: await b.page.textContent('#toast'), bCardsNow: await cards(b.page),
+      leftoverDocs: [...S.docs.keys()].filter((k) => k.startsWith('boards/')), errors: a.page._errors.concat(b.page._errors) });
     await a.ctx.close(); await b.ctx.close();
   }
   // D. One edit writes only what changed.
