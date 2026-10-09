@@ -19,8 +19,8 @@ async function newBoard(p, name, mode, project) {
     const start = { tabs: await tabs(page), cards: await total(page) };
     await newBoard(page, '', 'move', 'Western blot optimization');
     const moved = { tabs: await tabs(page), cards: await total(page), projects: await page.$$eval('#flt-project option', (o) => o.map((x) => x.textContent)) };
-    await newBoard(page, 'Grant reporting', 'empty');
-    const empty = { tabs: await tabs(page), emptyState: !!(await page.$('#view .empty')) };
+    await newBoard(page, 'Grant reporting', 'blank');
+    const empty = { tabs: await tabs(page), emptyState: !!(await page.$('#view .empty-board')) };
     await goTab(page, 'Lab Task Board');
     const firstAfterMove = await total(page);
     // An edit followed by an immediate tab switch must not be lost (the switch writes pending changes first).
@@ -86,7 +86,7 @@ async function newBoard(p, name, mode, project) {
     await page.fill('#a-q', '');
     await page.click('.arow:has-text("Orbitrap") [data-m=a-restore]');
     const restoredIn = await page.$eval('.card:has-text("Orbitrap")', (c) => c.closest('.cell').dataset.stage).catch(() => null);
-    await page.click('.arow:first-of-type [data-m=a-del]'); await page.click('.arow:first-of-type [data-m=a-del]');
+    await page.click('.arow:first-of-type [data-m=a-menu]'); await page.click('.arow:first-of-type [data-m=a-del]'); await page.click('.arow:first-of-type [data-m=a-del]');
     const afterDelete = await page.$$eval('.arow', (a) => a.length);
     await page.click('[data-close]');
     await page.waitForTimeout(600); await page.reload(); await ready(page);

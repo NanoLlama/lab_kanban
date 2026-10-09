@@ -101,7 +101,7 @@ async function newTask(page, title) { await page.click('#btn-new'); await page.f
     // Both open the same task before either saves.
     await a.page.click('.card'); await b.page.click('.card');
     await a.page.fill('#f-title', 'Renamed by A');
-    await b.page.selectOption('#f-priority', 'critical');
+    await b.page.click('.pri-seg label.critical');
     await Promise.all([a.page.click('[data-m=save]'), b.page.click('[data-m=save]')]);
     await Promise.all([newTask(a.page, 'Added by A'), newTask(b.page, 'Added by B')]);
     await settle(a.page, 1500);
@@ -167,9 +167,9 @@ async function newTask(page, title) { await page.click('#btn-new'); await page.f
     // A deletes the new board; B restores it from Recently deleted.
     await a.page.click('[data-act=boards]'); await a.page.click('.brow:has-text("Alpha") [data-m=b-del]'); await a.page.fill('#db-name', 'Alpha'); await a.page.click('#db-ok'); await settle(a.page, 900);
     await b.page.click('[data-act=boards]');
-    const bBin = await b.page.$$eval('.trash-h ~ .brow .bname', (n) => n.map((x) => x.textContent));
+    const bBin = await b.page.$$eval('.trash-list .brow .bname', (n) => n.map((x) => x.textContent));
     await b.page.click('.brow:has-text("Alpha") [data-m=b-restore]'); await ready(b.page); await settle(b.page, 900);
-    log({ test: 'shared:moveAndRestore', label, failed, ok, bBin, bRestoredCards: await cards(b.page), aListAfter: await (async () => { await a.page.click('[data-act=boards]'); return a.page.$$eval('#b-list > .brow .bname', (n) => n.map((x) => x.textContent)) })(), errors: a.page._errors.concat(b.page._errors) });
+    log({ test: 'shared:moveAndRestore', label, failed, ok, bBin, bRestoredCards: await cards(b.page), aListAfter: await (async () => { await a.page.click('[data-act=boards]'); return a.page.$$eval('#b-list > .table:not(.trash-list) .brow .bname', (n) => n.map((x) => x.textContent)) })(), errors: a.page._errors.concat(b.page._errors) });
     await a.ctx.close(); await b.ctx.close();
   }
   // D. One edit writes only what changed.

@@ -56,8 +56,8 @@ const total = (p) => p.$$eval('.stage-head .count', (c) => c.reduce((s, e) => s 
     const afterUndo = await total(page);
     // Project delete, keep tasks
     await page.click('#btn-projects'); await page.click('.prow[data-i="1"] [data-m=del]');
-    const choices = await page.$$eval('.prow[data-i="1"] [data-m^=del-]', (b) => b.map((x) => x.textContent));
-    await page.click('.prow[data-i="1"] [data-m=del-keep]'); await page.click('[data-m=apply]');
+    const choices = await page.$$eval('.prow[data-i="1"] .p-dest option', (o) => o.map((x) => x.textContent));
+    await page.selectOption('.prow[data-i="1"] .p-dest', ''); await page.click('.prow[data-i="1"] [data-m=del-ok]'); await page.click('[data-m=apply]');
     const bTask = await page.$eval('.card:has-text("B task")', (c) => !!c.querySelector('.chip')).catch(() => 'missing');
     await page.click('#toast [data-toast-act]');
     const bRestored = await page.$eval('.card:has-text("B task") .chip', (c) => c.textContent).catch(() => null);
@@ -75,25 +75,25 @@ const total = (p) => p.$$eval('.stage-head .count', (c) => c.reduce((s, e) => s 
   {
     const { page, ctx } = await L.open({ data: mini([T(1, { title: 'Colored' }), T(2, { due: L.iso(5), start: L.iso(0) })]) });
     await page.click('#btn-projects');
-    const paletteSize = await page.$$eval('.prow[data-i="0"] .cp-grid .sw', (s) => s.length);
-    await page.click('.prow[data-i="0"] summary');
+    await page.click('.prow[data-i="0"] [data-m=sw]');
+    const paletteSize = await page.$$eval('.prow[data-i="0"] .pal[aria-label=Palette] .sw', (s) => s.length);
     await page.fill('.prow[data-i="0"] .cp-hex', '#1a2b3c');
     await page.click('[data-m=apply]');
     const projColor = await page.$eval('.card:has-text("Task 2")', (c) => c.style.getPropertyValue('--pc'));
-    await page.click('.card:has-text("Colored")'); await page.click('.cdet summary');
-    const saved = await page.$$eval('.cp-row .cp-grid .sw', (s) => s.map((x) => x.dataset.c));
-    await page.click('.cp-grid .sw[data-c="#C11574"]');
-    const summary = await page.textContent('.cdet .clab');
+    await page.click('.card:has-text("Colored")'); await page.click('[data-m=cp-toggle]');
+    const saved = await page.$$eval('#task-cp .pal[aria-label="Saved colors"] .sw', (s) => s.map((x) => x.dataset.c));
+    await page.click('#task-cp .sw[data-c="#d98ad6"]');
+    const summary = await page.textContent('#f-ccolor');
     await page.click('[data-m=save]');
     const cardColor = await page.$eval('.card:has-text("Colored")', (c) => c.style.getPropertyValue('--pc'));
     const chipColor = await page.$eval('.card:has-text("Colored") .chip', (c) => c.style.getPropertyValue('--pc'));
     // back to project color
-    await page.click('.card:has-text("Colored")'); await page.click('.cdet summary'); await page.click('.cp [data-c=""]'); await page.click('[data-m=save]');
+    await page.click('.card:has-text("Colored")'); await page.click('[data-m=cp-toggle]'); await page.click('#task-cp [data-c=""]'); await page.click('[data-m=save]');
     const reset = await page.$eval('.card:has-text("Colored")', (c) => c.style.getPropertyValue('--pc'));
     // native color input (fires input events while dragging)
-    await page.click('.card:has-text("Task 2")'); await page.click('.cdet summary');
-    await page.$eval('.cp-in', (e) => { e.value = '#00ff88'; e.dispatchEvent(new Event('input', { bubbles: true })) });
-    const pickerStillOpen = await page.$eval('.cdet', (d) => d.open);
+    await page.click('.card:has-text("Task 2")'); await page.click('[data-m=cp-toggle]');
+    await page.$eval('#task-cp .cp-in', (e) => { e.value = '#00ff88'; e.dispatchEvent(new Event('input', { bubbles: true })) });
+    const pickerStillOpen = await page.$eval('#task-cp', (d) => !d.hidden);
     await page.click('[data-m=save]');
     await page.click('#tab-timeline');
     const bar = await page.$eval('.bar', (b) => b.style.getPropertyValue('--pc'));

@@ -13,9 +13,10 @@ const T = (o) => Object.assign({ id: 't' + Math.random(), title: 'task', project
 async function restore(page, text) {
   await page.click('#btn-backup');
   await page.setInputFiles('#b-file', { name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(text) });
-  await page.waitForSelector('#r-msg:not([hidden])');
-  const msg = await page.textContent('#r-msg');
-  const enabled = await page.$eval('#b-restore', (b) => !b.disabled);
+  // The file summary (or the reason it was rejected) replaces the drop-zone prompt once the file is read.
+  await page.waitForFunction(() => !/^Drop a/.test(document.getElementById('dz-sum').textContent));
+  const msg = await page.textContent('#dz-sum');
+  const enabled = await page.$eval('#r-row', (r) => !r.hidden);
   // Replacing a board takes two clicks: the first one spells out what will be replaced.
   if (enabled) { await page.click('#b-restore'); await page.click('#b-restore'); } else await page.click('[data-close]');
   return { msg, accepted: enabled };
@@ -93,7 +94,7 @@ async function restore(page, text) {
     await page.click('[data-m=save]');
     const formError = await page.$eval('#overlay', (o) => o.hidden ? null : document.getElementById('f-err').textContent);
     if (formError) await page.click('[data-close]');
-    const onBoard = await page.$eval('.card .badge:nth-child(2)', (e) => e.textContent).catch(() => null);
+    const onBoard = await page.$eval('.card .card-meta .badge:not(.blk)', (e) => e.textContent).catch(() => null);
     await page.waitForTimeout(600);
     await page.reload(); await page.waitForTimeout(300);
     const afterReload = await page.$eval('.card', (c) => c.textContent);
@@ -182,10 +183,10 @@ async function restore(page, text) {
     const now = new Date(); const lateTonight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
     const today = `${lateTonight.getFullYear()}-${String(lateTonight.getMonth() + 1).padStart(2, '0')}-${String(lateTonight.getDate()).padStart(2, '0')}`;
     const { page, ctx } = await L.open({ clock: lateTonight, data: mini([T({ title: 'due today', start: today, due: today })]) });
-    const before = await page.textContent('.card .badge:nth-child(2)');
+    const before = await page.textContent('.card .card-meta .badge:not(.blk)');
     await page.clock.fastForward('02:00:00');
     await page.click('#flt-overdue'); await page.click('#flt-overdue'); // force a re-render
-    const after = await page.textContent('.card .badge:nth-child(2)');
+    const after = await page.textContent('.card .card-meta .badge:not(.blk)');
     const stats = await page.textContent('#stats');
     log({ test: 'clock:midnight', badgeBefore: before, badgeTwoHoursLater: after, stats });
     await ctx.close();

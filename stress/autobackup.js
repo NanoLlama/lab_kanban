@@ -30,7 +30,7 @@ const dialog = (p) => p.$eval('#overlay', (o) => o.hidden ? null : document.getE
     const page = await ctx.newPage(); page._errors = []; page.on('pageerror', (e) => page._errors.push(String(e)));
     return { ctx, page };
   }
-  const go = async (page) => { await page.goto(URL); await page.waitForSelector('#view .empty, #view .board'); await page.waitForTimeout(700); };
+  const go = async (page) => { await page.goto(URL); await page.waitForSelector('#view .empty, #view .empty-board, #view .board'); await page.waitForTimeout(700); };
 
   // A. First open asks; choosing a location writes the file; every change rewrites it; reload resumes silently.
   {

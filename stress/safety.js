@@ -32,7 +32,7 @@ const idbKeys = (p) => p.evaluate(async () => { const db = await new Promise((r)
     await page.click('#db-ok'); await ready(page); await page.waitForTimeout(300);
     d.toast = await page.textContent('#toast'); d.tabs = await tabs(page);
     await page.click('[data-act=boards]');
-    d.recentlyDeleted = await page.$$eval('.trash-h ~ .brow .bname', (n) => n.map((x) => x.textContent));
+    d.recentlyDeleted = await page.$$eval('.trash-list .brow .bname', (n) => n.map((x) => x.textContent));
     d.dataStillStored = (await idbKeys(page)).filter((k) => String(k).startsWith('board:')).length;
     await page.click('.brow:has-text("Side project") [data-m=b-restore]'); await ready(page); await page.waitForTimeout(300);
     d.restored = { tabs: await tabs(page), cards: await page.$$eval('.card h4', (h) => h.map((x) => x.textContent)) };
@@ -58,7 +58,7 @@ const idbKeys = (p) => p.evaluate(async () => { const db = await new Promise((r)
     });
     await page.reload(); await ready(page); await page.waitForTimeout(3200);
     await page.click('[data-act=boards]');
-    log({ test: 'safety:expiredErased', binAfterReload: await page.$$eval('.trash-h ~ .brow .bname', (n) => n.map((x) => x.textContent)), stored: (await idbKeys(page)).filter((k) => String(k).startsWith('board:')).length });
+    log({ test: 'safety:expiredErased', binAfterReload: await page.$$eval('.trash-list .brow .bname', (n) => n.map((x) => x.textContent)), stored: (await idbKeys(page)).filter((k) => String(k).startsWith('board:')).length });
     await page.click('[data-close]');
 
     // 4. Removing example data asks first; Cancel changes nothing.
@@ -81,9 +81,9 @@ const idbKeys = (p) => p.evaluate(async () => { const db = await new Promise((r)
 
     // 6. Every Apply in Stages can be undone (e.g. un-ticking "Counts as done" clears completion dates).
     await page.click('#btn-new'); await page.fill('#f-title', 'Finished card'); await page.selectOption('#f-stage', { index: 0 }); await page.click('[data-m=save]');
-    await page.click('#btn-stages'); await page.check('.srow:first-child .s-done'); await page.click('[data-m=apply]'); await page.waitForTimeout(100);
+    await page.click('#btn-stages'); await page.check('.srow[data-i="0"] .s-done'); await page.click('[data-m=apply]'); await page.waitForTimeout(100);
     await page.click('#btn-backup'); const doneAtBefore = await page.$eval('#b-text', (t) => JSON.parse(t.value).tasks.filter((x) => x.doneAt).length); await page.click('[data-close]');
-    await page.click('#btn-stages'); await page.uncheck('.srow:first-child .s-done'); await page.click('[data-m=apply]');
+    await page.click('#btn-stages'); await page.uncheck('.srow[data-i="0"] .s-done'); await page.click('[data-m=apply]');
     const toast6 = await page.textContent('#toast');
     const doneAtAfterUntick = await page.evaluate(async () => { await new Promise((r) => setTimeout(r, 500)); const db = await new Promise((r) => { const q = indexedDB.open('labboard', 1); q.onsuccess = () => r(q.result) }); const v = await new Promise((r) => { const g = db.transaction('kv').objectStore('kv').get('board'); g.onsuccess = () => r(g.result) }); return JSON.parse(v).tasks.filter((x) => x.doneAt).length }); await page.click('#toast [data-toast-act]');
     await page.click('#btn-backup'); const doneAtAfterUndo = await page.$eval('#b-text', (t) => JSON.parse(t.value).tasks.filter((x) => x.doneAt).length); await page.click('[data-close]');
