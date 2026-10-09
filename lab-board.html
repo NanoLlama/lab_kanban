@@ -5,6 +5,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <script defer src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<script>
+// Saved theme choice, applied before the first paint. No choice: follow the system setting.
+try{var th=localStorage.getItem('labboard.theme');if(th==='light'||th==='dark')document.documentElement.setAttribute('data-theme',th)}catch(e){}
+</script>
 <style>
 /* Layout: board tabs, header, filter row, then a stage-by-lane grid (board) or one Gantt strip per project (timeline).
    Visuals follow the Nocturne system: Inter 500 headings, outlined primary actions, low-chroma ramps,
@@ -168,6 +172,7 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:1}
 .ab-chip[data-s="error"] i{background:var(--crit)}
 .ab-chip[data-s="paused"]{color:var(--fg);box-shadow:0 0 0 1px color-mix(in srgb,var(--warn) 50%,transparent)}
 .ab-chip[data-s="error"]{color:var(--fg);box-shadow:0 0 0 1px color-mix(in srgb,var(--crit) 50%,transparent)}
+.theme-seg .seg-opt{padding:6px 8px}
 .tl-only{display:none!important}
 .v-timeline .tl-only{display:inline-flex!important}
 .browser-req{display:inline-flex;align-items:center;gap:6px;font:500 12px var(--f-body);color:var(--warn);box-shadow:0 0 0 1px color-mix(in srgb,var(--warn) 45%,transparent);border-radius:6px;padding:2px 8px}
@@ -568,6 +573,11 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
     <div class="actions">
       <span class="status" id="status" data-s="saving"><i></i><span>Loading</span></span>
       <button class="ab-chip" id="ab-chip" type="button" hidden><i></i><span>Auto-backup</span></button>
+      <div class="seg theme-seg" id="theme" role="group" aria-label="Theme">
+        <button class="seg-opt" type="button" data-theme-opt="system" aria-pressed="true" title="Match the system setting" aria-label="System theme"><i class="ph ph-desktop" aria-hidden="true"></i></button>
+        <button class="seg-opt" type="button" data-theme-opt="light" aria-pressed="false" title="Light theme" aria-label="Light theme"><i class="ph ph-sun" aria-hidden="true"></i></button>
+        <button class="seg-opt" type="button" data-theme-opt="dark" aria-pressed="false" title="Dark theme" aria-label="Dark theme"><i class="ph ph-moon" aria-hidden="true"></i></button>
+      </div>
       <div class="seg tl-only" id="tl-zoom" role="group" aria-label="Timeline zoom">
         <button class="seg-opt" type="button" data-zoom="week" aria-pressed="false">Week</button>
         <button class="seg-opt" type="button" data-zoom="months" aria-pressed="true">2 months</button>
@@ -2518,6 +2528,17 @@ document.addEventListener('visibilitychange',function(){if(document.hidden&&ab.t
 $$('.tabs button').forEach(function(b){b.addEventListener('click',function(){if(ui.view!==b.dataset.view)tlJump=true;ui.view=b.dataset.view;savePrefs();render()})});
 $$('#tl-zoom [data-zoom]').forEach(function(b){b.addEventListener('click',function(){ui.zoom=b.dataset.zoom;tlJump=true;savePrefs();render()})});
 $('#tl-today').addEventListener('click',tlToday);
+// Theme: System follows the OS setting; Light and Dark override it and are remembered in this browser.
+var THEME_KEY='labboard.theme';
+function themeNow(){var t=document.documentElement.getAttribute('data-theme');return t==='light'||t==='dark'?t:'system'}
+function syncTheme(){var t=themeNow();$$('#theme [data-theme-opt]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.themeOpt===t))})}
+$$('#theme [data-theme-opt]').forEach(function(b){b.addEventListener('click',function(){
+  var t=b.dataset.themeOpt;
+  if(t==='system')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t);
+  try{if(t==='system')localStorage.removeItem(THEME_KEY);else localStorage.setItem(THEME_KEY,t)}catch(e){}
+  syncTheme();
+})});
+syncTheme();
 $('#grp').addEventListener('change',function(e){ui.groupBy=e.target.value;savePrefs();render()});
 $('#flt-project').addEventListener('change',function(e){ui.f.project=e.target.value;render()});
 $('#flt-assignee').addEventListener('change',function(e){ui.f.assignee=e.target.value;render()});
