@@ -275,6 +275,8 @@ body.col-resizing,body.col-resizing *{cursor:col-resize!important;-webkit-user-s
 .badge.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
 .badge.blk{display:inline-flex;align-items:center;gap:4px;border-color:transparent;background:color-mix(in srgb,var(--crit) 18%,transparent);color:var(--crit)}
 .who{margin-left:auto;font:500 10px var(--f-mono);width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--avatar);color:var(--avatar-fg);flex:none}
+.card-meta .att-n{display:inline-flex;align-items:center;gap:2px;font:11px var(--f-mono);color:var(--muted);margin-left:auto}
+.card-meta .att-n+.who{margin-left:0}
 .edge-cards{--tint:0%;--tintb:0%;--mark:1}
 
 /* empty board */
@@ -447,7 +449,7 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
 .lrow.drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
 .lrow-main{display:grid;gap:10px;align-items:center}
 .srows .lrow-head,.srows .lrow-main{grid-template-columns:20px minmax(0,1fr) 92px 96px 30px}
-.prows .lrow-head,.prows .lrow-main{grid-template-columns:20px 30px minmax(0,1fr) 70px 30px}
+.prows .lrow-head,.prows .lrow-main{grid-template-columns:20px 30px minmax(0,1fr) 70px 40px 30px}
 .handle{color:var(--muted);cursor:grab;display:grid;place-items:center;position:relative;font-size:16px}
 .mv-btns{position:absolute;left:-6px;top:50%;transform:translateY(-50%);z-index:3;display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--surface);box-shadow:var(--shadow-lg)}
 .mv-btns .icon-btn{width:24px;height:24px}
@@ -497,6 +499,39 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
 .task-cp .pal{grid-template-columns:repeat(6,24px);gap:6px}
 .task-cp .pal .sw{width:24px;height:24px}
 .task-cp .pal .sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--fg)}
+
+/* attachments */
+.att{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--divider)}
+.att.over{box-shadow:0 0 0 2px var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.att-head{display:flex;align-items:center;gap:8px;font-size:13px}
+.att-head>.ph{color:var(--accent)}
+.att-head b{font-weight:500}
+.att-head .att-n{font-size:11.5px;color:var(--muted)}
+.att-head .sp{flex:1}
+.att-linkrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.modal .att-linkrow input{min-height:30px;padding:4px 8px;font-size:12.5px}
+.modal .att-linkrow .att-url{flex:2 1 200px}
+.modal .att-linkrow .att-label{flex:1 1 120px}
+.att-list{display:flex;flex-direction:column}
+.att-row{display:flex;align-items:center;gap:8px;min-height:30px;border-top:1px solid var(--line);font-size:13px}
+.att-row:first-child{border-top:0}
+.att-row>.ph{font-size:16px;color:var(--soft);flex:none}
+.att-name{border:0;background:none;padding:0;color:var(--fg);cursor:pointer;text-align:left;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.att-name:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.att-meta{margin-left:auto;font:11px var(--f-mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45%}
+.att-empty{margin:0;font-size:12.5px;color:var(--muted)}
+.att-hint{margin:0;font-size:11.5px;color:var(--muted)}
+.att-msg{margin:0;font-size:12.5px;color:var(--soft)}
+.att-msg.err{color:var(--crit)}
+.pclip{display:inline-flex;align-items:center;gap:2px;width:auto;padding:0 6px}
+.pclip .mono{font-size:11px}
+.pclip.has{color:var(--accent)}
+.patt{margin-left:30px}
+.att-chips{display:inline-flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.att-chip{display:inline-flex;align-items:center;gap:5px;max-width:200px;border:0;box-shadow:0 0 0 1px var(--line);background:none;border-radius:99px;padding:2px 9px;font-size:12px;color:var(--fg);cursor:pointer}
+.att-chip:hover{box-shadow:0 0 0 1px var(--accent);color:var(--accent)}
+.att-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att-more{font:11px var(--f-mono);color:var(--muted);align-self:center}
 
 /* export dialog */
 .rp-opts{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 18px;margin-top:4px}
@@ -574,7 +609,7 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
   .confirm{margin-left:0}
   .empty-board{grid-template-columns:1fr}
   .srows .lrow-head,.srows .lrow-main{grid-template-columns:20px minmax(0,1fr) 64px 70px 30px}
-  .prows .lrow-head,.prows .lrow-main{grid-template-columns:20px 30px minmax(0,1fr) 30px}
+  .prows .lrow-head,.prows .lrow-main{grid-template-columns:20px 30px minmax(0,1fr) 40px 30px}
   .prows .pcount,.prows .lrow-head .ph-c{display:none}
   .table .hide-sm{display:none}
 }
@@ -785,7 +820,7 @@ function normBoardMeta(raw){
   s.meta={title:clip(m.title||s.meta.title,120),nextNum:Math.floor(Number(m.nextNum))||1,sample:!!m.sample,
     lastBackupAt:typeof m.lastBackupAt==='string'?m.lastBackupAt:'',updatedAt:typeof m.updatedAt==='string'?m.updatedAt:'',customColors:cleanColors(m.customColors),cardStyle:m.cardStyle==='edge'?'edge':'tint'};
   s.stages=rs.map(function(x,i){var id=String(x.id||uid('st_'));while(seen[id])id=uid('st_');seen[id]=1;return {id:id,name:clip(x.name||'Stage '+(i+1),40),wip:x.wip>0?Math.min(999,Math.floor(x.wip)):null,done:!!x.done}});
-  s.projects=(Array.isArray(raw.projects)?raw.projects:[]).filter(isObj).map(function(x,i){var id=String(x.id||uid('pr_'));while(pseen[id])id=uid('pr_');pseen[id]=1;var o={id:id,name:clip(x.name||'Project '+(i+1),60),color:HEX.test(x.color)?retune(x.color):PALETTE[i%PALETTE.length]};if(x.sample)o.sample=true;return o});
+  s.projects=(Array.isArray(raw.projects)?raw.projects:[]).filter(isObj).map(function(x,i){var id=String(x.id||uid('pr_'));while(pseen[id])id=uid('pr_');pseen[id]=1;var o={id:id,name:clip(x.name||'Project '+(i+1),60),color:HEX.test(x.color)?retune(x.color):PALETTE[i%PALETTE.length]};if(x.sample)o.sample=true;var pa=normAtt(x.att);if(pa)o.att=pa;return o});
   return s;
 }
 // One task. In lenient mode (shared sync) a task may point at a stage or project that has not
@@ -804,6 +839,7 @@ function normTask(x,i,ctx){
   var rp=normRepeat(x.repeat);if(rp)t.repeat=rp;
   if(typeof x.series==='string'&&x.series)t.series=clip(x.series,60);
   if(x.spawned)t.spawned=true;
+  var at=normAtt(x.att);if(at)t.att=at;
   if(x.archived){t.archived=true;t.archivedAt=typeof x.archivedAt==='string'?x.archivedAt:new Date().toISOString()}
   return t;
 }
@@ -839,6 +875,8 @@ function spawnRepeats(){
     var dt=nextDates(t),n={id:uid('t_'),ref:'T-'+String(state.meta.nextNum++).padStart(3,'0'),title:t.title,desc:t.desc,projectId:t.projectId,stageId:open.id,
       priority:t.priority,assignee:t.assignee,start:dt.start,due:dt.due,color:t.color,blocked:false,order:nextOrder(open.id),
       createdAt:new Date().toISOString(),doneAt:'',repeat:clone(t.repeat),series:ser};
+    // Links (protocols, SOPs) carry over; files stay with the occurrence they belong to.
+    var links=(t.att||[]).filter(function(a){return a.kind==='link'}).map(function(a){return Object.assign({},a,{id:uid('a_')})});if(links.length)n.att=links;
     state.tasks.push(n);made.push(n);
   });
   return made;
@@ -1311,7 +1349,7 @@ async function restoreBoard(id){
 async function purgeBoard(id){
   var b=trash.find(function(x){return x.id===id});if(!b||readOnly)return;
   trash=trash.filter(function(x){return x!==b});delete ui.byBoard[id];savePrefs();
-  await purgeBoardData(id);
+  await purgeBoardData(id);await attPurgeBoard(id);
   if(id===MAIN)tombs.push(MAIN);
   if(storage==='local')await saveRegistry();
   else if(id===MAIN){try{await writeEntry(b,true,true)}catch(e){}}
@@ -1565,6 +1603,7 @@ function cardHtml(t){
     +(ui.groupBy!=='priority'?'<span class="pri '+pr.key+'" title="Priority">'+pr.label+'</span>':'')
     +(di?'<span class="badge '+di.cls+'" title="Deadline '+esc(t.due||'none')+'">'+esc(di.txt)+'</span>':'')
     +(t.blocked&&!done?'<span class="badge blk">'+ic('prohibit')+'Blocked</span>':'')
+    +(t.att?'<span class="att-n" title="'+t.att.length+' attachment'+(t.att.length===1?'':'s')+'">'+ic('paperclip')+t.att.length+'</span>':'')
     +(t.assignee?'<span class="who" title="'+esc(t.assignee)+'">'+esc(initials(t.assignee))+'</span>':'')
     +'</div></article>';
 }
@@ -1732,7 +1771,7 @@ function tlSection(p,all,ax){
   var h='<section class="tl-proj'+(closed?' closed':'')+'" style="--pc:'+esc(p.color)+'"><div class="tl-head">'
     +'<button class="tg" type="button" data-act="toggle-lane" data-key="'+esc(ck)+'" aria-expanded="'+(!closed)+'" aria-label="Collapse or expand '+esc(p.name)+'">'+ICON.chev+'</button>'
     +'<h3><i></i>'+esc(p.name)+'</h3><span class="meta">'+tasks.length+' task'+(tasks.length===1?'':'s')+' · '+doneN+' done'+(lateN?' · '+lateN+' overdue':'')+'</span>'
-    +'<div class="prog" title="'+pctDone+'% done"><b style="width:'+pctDone+'%"></b></div><span class="meta">'+pctDone+'%</span></div>';
+    +'<div class="prog" title="'+pctDone+'% done"><b style="width:'+pctDone+'%"></b></div><span class="meta">'+pctDone+'%</span>'+attChips(p.att,'p:'+p.id)+'</div>';
   if(closed)return h+'</section>';
   if(!dated.length){
     h+='<div class="tl-empty">'+(tasks.length?'No deadlines set yet. Open a task and add a deadline to place it on this timeline.':'No tasks in this project yet.')+'</div>';
@@ -1787,6 +1826,7 @@ function render(){
   if(loaded&&ab.board!==curBoard){ab.board=curBoard;setTimeout(abInit,300)}
   syncChrome();
   if(ui.view==='timeline')renderTimeline();else renderBoard();
+  attTrack();
 }
 
 
@@ -1813,6 +1853,7 @@ function requestClose(){
   closeModal();
 }
 function closeModal(){
+  if(cur&&cur.onClose)try{cur.onClose()}catch(e){}
   $('#overlay').hidden=true;$('#modal-body').innerHTML='';$('#modal-foot').innerHTML='';cur=null;
   if(lastFocus&&lastFocus.focus)try{lastFocus.focus()}catch(e){}
 }
@@ -1894,7 +1935,8 @@ function openTask(id,preset){
   if(id&&!ex)return;
   preset=preset||{};
   var d=ex?Object.assign({},ex):{title:'',desc:'',projectId:preset.projectId!==undefined?preset.projectId:(ui.f.project||(state.projects[0]?state.projects[0].id:'')),stageId:preset.stageId||state.stages[0].id,priority:preset.priority||'medium',assignee:preset.assignee||'',start:fromDay(TODAY),due:'',blocked:false,color:''};
-  var color=d.color||'',cpOpen=false,tid=ex?ex.id:null;
+  var color=d.color||'',cpOpen=false,tid=ex?ex.id:null,att=(d.att||[]).slice(),saved=false;
+  var actl=attCtl('task',function(){return att},function(l){att=l},'Attachments');
   var opt=function(v,l,sel){return '<option value="'+esc(v)+'"'+(sel?' selected':'')+'>'+esc(l)+'</option>'};
   // Stage options carry the WIP count the stage would have with this task in it.
   var stOpts=state.stages.map(function(s){var n=stageLoad(s.id,tid);return opt(s.id,s.name+(s.wip?'  '+n+'/'+s.wip:''),s.id===stageKey(d))}).join('');
@@ -1903,6 +1945,7 @@ function openTask(id,preset){
       +'<label class="fld"><span>Title</span><input id="f-title" type="text" maxlength="140" value="'+esc(d.title)+'" placeholder="e.g. Run STR profiling on HEK293T"></label>'
       +'<label class="fld"><span>Notes</span><textarea id="f-desc" rows="6" placeholder="Protocol, reagents, lot numbers, links">'+esc(d.desc)+'</textarea></label>'
       +(readOnly?'':'<div class="kb-hint">'+ic('info')+(IS_MAC?'⌘':'Ctrl')+' + Enter saves. Esc closes; unsaved edits ask first.</div>')
+      +actl.html()+'<input type="hidden" id="f-att-sig" value="'+esc(att.map(function(a){return a.id}).join(','))+'">'
       +'<p class="form-err" id="f-err" role="alert" hidden></p>'
       +(ex?historyHtml(ex):'')
     +'</div><div class="task-side">'
@@ -1936,8 +1979,9 @@ function openTask(id,preset){
     sel.title=s&&s.wip?(n>s.wip?'Over its WIP limit':n===s.wip?'At its WIP limit':'')+'':'';
   }
   openModal({pre:ex?ex.ref:'',title:ex?(readOnly?'Task':'Edit task'):'New task',meta:created,wide:'x',body:body,foot:foot,
+    onClose:function(){if(!saved)actl.discard()},
     mount:function(){
-      paintColor();paintStage();
+      paintColor();paintStage();actl.mount();
       var form=$('#task-form');
       form.addEventListener('submit',function(e){e.preventDefault();save()});
       form.addEventListener('keydown',function(e){
@@ -1951,6 +1995,7 @@ function openTask(id,preset){
       $('#f-assignee').addEventListener('input',function(e){var v=initials(cleanName(e.target.value)),av=$('#f-av');av.textContent=v;av.hidden=!v});
     },
     action:function(name,btn){
+      if(actl.action(name,btn))return;
       if(name==='save'){save();return}
       if(name==='cp-toggle'){cpOpen=!cpOpen;$('#task-cp').hidden=!cpOpen;paintColor();return}
       if(name==='archive'){if(save()){var at=state.tasks.find(function(x){return x.id===ex.id});if(at)archiveTasks([at])}return}
@@ -1975,22 +2020,24 @@ function openTask(id,preset){
     else if(rv){var rr=rv.split(':');rep={every:+rr[0],unit:rr[1]}}
     var vals={title:title,desc:$('#f-desc').value.trim(),projectId:projectId,stageId:stageId,priority:pri,assignee:canonPerson($('#f-assignee').value),start:start||fromDay(TODAY),due:due,blocked:$('#f-blocked').checked,color:color};
     rememberColor(color);
-    vals.repeat=rep;
+    vals.repeat=rep;vals.att=att.length?att:null;
     var t=ex&&state.tasks.find(function(x){return x.id===ex.id});
     if(ex&&!t){
       // Deleted by someone else while this dialog was open: keep the user's work as a restored task.
-      t=Object.assign({},ex,vals,{order:nextOrder(vals.stageId)});delete t.sample;state.tasks.push(t);syncDone(t);
+      t=Object.assign({},ex,vals,{order:nextOrder(vals.stageId)});delete t.sample;if(!t.att)delete t.att;state.tasks.push(t);syncDone(t);saved=true;actl.saved();
       commit();closeModal();toast(ex.ref+' was deleted by someone else. Your version was restored.',5000);return true;
     }
     if(t){
       var moved=stageKey(t)!==vals.stageId;
       Object.assign(t,vals);delete t.sample;if(moved)t.order=nextOrder(vals.stageId);syncDone(t);
       if(!t.repeat)delete t.repeat;else if(!isDone(t))delete t.spawned;
+      if(!t.att)delete t.att;
     }else{
       var n=Object.assign({id:uid('t_'),ref:'T-'+String(state.meta.nextNum++).padStart(3,'0'),createdAt:new Date().toISOString(),doneAt:'',order:nextOrder(vals.stageId)},vals);
-      if(!n.repeat)delete n.repeat;
+      if(!n.repeat)delete n.repeat;if(!n.att)delete n.att;
       state.tasks.push(n);syncDone(n);
     }
+    saved=true;actl.saved();
     commit();closeModal();return true;
   }
 }
@@ -2068,7 +2115,10 @@ function openStages(){
 
 /* ---------- projects dialog ---------- */
 function openProjects(){
-  var draft=state.projects.map(function(p){return Object.assign({},p)}),confirm=-1,openI=-1,removed=Object.create(null),cstyle=state.meta.cardStyle==='edge'?'edge':'tint';
+  var draft=state.projects.map(function(p){return Object.assign({},p)}),confirm=-1,openI=-1,attI=-1,removed=Object.create(null),cstyle=state.meta.cardStyle==='edge'?'edge':'tint';
+  // One attachments box per project, kept while the dialog is open so files added and then hidden are tracked.
+  var ctls=Object.create(null),applied=false;
+  function ctlFor(p){return ctls[p.id]||(ctls[p.id]=attCtl('pa:'+p.id,function(){return p.att||[]},function(l){p.att=l.length?l:null},'Files and links for this project'))}
   function count(id){return state.tasks.filter(function(t){return t.projectId===id}).length}
   // Deleted projects send their tasks to another project, to No project, or away with them.
   function dest(id){for(var n=0;n<50;n++){var r=removed[id];if(!r)return id;id=r.to;if(!id||id==='__del')return id}return ''}
@@ -2083,7 +2133,7 @@ function openProjects(){
       +'<label class="seg-opt"><input type="radio" name="cstyle" value="tint"'+(cstyle==='tint'?' checked':'')+'>Tint</label>'
       +'<label class="seg-opt"><input type="radio" name="cstyle" value="edge"'+(cstyle==='edge'?' checked':'')+'>Edge mark</label></div></div>';
     if(!draft.length)return h+'<p class="hint">No projects yet. Add one to start color-coding tasks.</p>';
-    h+='<div class="lrow-head"><span></span><span></span><span>Name</span><span class="ph-c">Tasks</span><span></span></div>';
+    h+='<div class="lrow-head"><span></span><span></span><span>Name</span><span class="ph-c">Tasks</span><span></span><span></span></div>';
     h+=draft.map(function(p,i){
       var n=load(p.id),conf='',panel='';
       if(confirm===i){
@@ -2092,13 +2142,15 @@ function openProjects(){
           +(n?'<select class="p-dest" aria-label="Move tasks to"><option value="">No project</option>'+others.map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>'}).join('')+'<option value="__del">Delete the tasks too</option></select>':'')
           +'<span class="sp"></span><button class="btn sm" type="button" data-m="del-cancel">Keep</button><button class="btn sm danger" type="button" data-m="del-ok" data-i="'+i+'">Delete project</button></div>';
       }
+      if(attI===i)panel+='<div class="patt">'+ctlFor(p).html()+'</div>';
       if(openI===i){
-        panel='<div class="cpanel" data-cp="p'+i+'"><div class="cpanel-l">'+palHtml('p'+i,p.color)+hexHtml('p'+i,p.color)+'</div>'+preview(p)+'</div>';
+        panel+='<div class="cpanel" data-cp="p'+i+'"><div class="cpanel-l">'+palHtml('p'+i,p.color)+hexHtml('p'+i,p.color)+'</div>'+preview(p)+'</div>';
       }
       return '<div class="lrow prow" data-i="'+i+'" style="--pc:'+esc(p.color)+'"><div class="lrow-main">'+handleHtml(i,draft.length,p.name)
         +'<button class="swbtn" type="button" data-m="sw" data-i="'+i+'" aria-expanded="'+(openI===i)+'" aria-label="Color for '+esc(p.name)+': '+esc(p.color)+'" title="Change color"></button>'
         +'<input type="text" class="p-name" maxlength="60" value="'+esc(p.name)+'" aria-label="Project name">'
         +'<span class="pcount">'+n+' task'+(n===1?'':'s')+'</span>'
+        +'<button class="icon-btn pclip'+(p.att?' has':'')+'" type="button" data-m="p-att" data-i="'+i+'" aria-expanded="'+(attI===i)+'" aria-label="Attachments for '+esc(p.name)+'" title="Files and links">'+ic('paperclip')+(p.att?'<span class="mono">'+p.att.length+'</span>':'')+'</button>'
         +'<button class="icon-btn trash" type="button" data-m="del" data-i="'+i+'" aria-label="Delete '+esc(p.name)+'">'+ic('trash')+'</button>'
         +'</div>'+panel+conf+'</div>';
     }).join('');
@@ -2107,21 +2159,26 @@ function openProjects(){
       return 'Deleting <strong>'+esc(r.name)+'</strong>: '+(r.n?r.n+' task'+(r.n===1?'':'s')+(to==='__del'?' deleted too.':tn?' moved to '+esc(tn)+'.':' moved to No project.'):'no tasks.')}).join('<br>')+'</p>';
     return h;
   }
+  // The paperclip shows the count as files and links are added or removed.
+  function updClip(){var p=draft[attI],b=p&&$('#proj-rows .lrow[data-i="'+attI+'"] .pclip');if(!b)return;b.classList.toggle('has',!!p.att);b.innerHTML=ic('paperclip')+(p.att?'<span class="mono">'+p.att.length+'</span>':'')}
   function sync(){
     $$('#proj-rows .lrow').forEach(function(r){draft[+r.dataset.i].name=$('.p-name',r).value});
     var cs=$('#proj-rows input[name=cstyle]:checked');if(cs)cstyle=cs.value;
   }
-  function paint(focusSel){$('#proj-rows').innerHTML=rows();if(focusSel){var f=$(focusSel);if(f)f.focus()}}
+  function paint(focusSel){$('#proj-rows').innerHTML=rows();if(attI>=0&&draft[attI])ctlFor(draft[attI]).mount();if(focusSel){var f=$(focusSel);if(f)f.focus()}}
   openModal({title:'Projects',wide:true,noFocus:true,
     body:'<p class="hint">Each project\'s color tints its cards and its timeline bars. A task can override its project color.</p><div class="prows" id="proj-rows">'+rows()+'</div><p class="form-err" id="p-err" role="alert" hidden></p>',
     foot:'<button class="btn" type="button" data-m="add">'+ic('plus')+'Add project</button><span class="sp"></span><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-m="apply">Save projects</button>',
+    onClose:function(){if(!applied)Object.keys(ctls).forEach(function(k){ctls[k].discard()})},
     mount:function(){
-      rowDrag('#proj-rows',function(f,t){sync();var o=draft[openI];moveItem(draft,f,t);openI=o?draft.indexOf(o):-1;confirm=-1;paint()});
+      rowDrag('#proj-rows',function(f,t){sync();var o=draft[openI],oa=draft[attI];moveItem(draft,f,t);openI=o?draft.indexOf(o):-1;attI=oa?draft.indexOf(oa):-1;confirm=-1;paint()});
       // Preview chip follows the name as it is typed.
       $('#proj-rows').addEventListener('input',function(e){if(!e.target.classList.contains('p-name'))return;var r=e.target.closest('.lrow'),c=r&&$('.preview .chip span',r);if(c)c.textContent=e.target.value||'Project'});
     },
     action:function(name,btn){
       sync();var i=+btn.dataset.i;
+      if(attI>=0&&draft[attI]&&ctlFor(draft[attI]).action(name,btn)){if(name==='att-rm'||name==='att-link-ok')updClip();return}
+      if(name==='p-att'){attI=attI===i?-1:i;paint();return}
       if(name==='add'){
         var used=draft.map(function(p){return p.color.toLowerCase()});
         var c=PALETTE.find(function(x){return used.indexOf(x.toLowerCase())<0})||PALETTE[draft.length%PALETTE.length];
@@ -2136,13 +2193,13 @@ function openProjects(){
         var row=$('#proj-rows .lrow[data-i="'+k+'"]');if(row){row.style.setProperty('--pc',c2);$('.swbtn',row).setAttribute('aria-label','Color for '+draft[k].name+': '+c2)}
         return;
       }
-      if(name==='up'||name==='down'){var j=name==='up'?i-1:i+1;if(j<0||j>=draft.length)return;var o=draft[openI];moveItem(draft,i,j);openI=o?draft.indexOf(o):-1;confirm=-1;paint('#proj-rows .lrow[data-i="'+j+'"] [data-m="'+name+'"]:not([disabled])');return}
+      if(name==='up'||name==='down'){var j=name==='up'?i-1:i+1;if(j<0||j>=draft.length)return;var o=draft[openI],oa=draft[attI];moveItem(draft,i,j);openI=o?draft.indexOf(o):-1;attI=oa?draft.indexOf(oa):-1;confirm=-1;paint('#proj-rows .lrow[data-i="'+j+'"] [data-m="'+name+'"]:not([disabled])');return}
       if(name==='del'){confirm=i;paint();return}
       if(name==='del-cancel'){confirm=-1;paint();return}
       if(name==='del-ok'){
         var p=draft[i],sel=$('.lrow[data-i="'+i+'"] .p-dest');
         removed[p.id]={name:p.name,to:sel?sel.value:'',n:load(p.id)};draft.splice(i,1);
-        if(openI===i)openI=-1;else if(openI>i)openI--;confirm=-1;paint();return;
+        if(openI===i)openI=-1;else if(openI>i)openI--;if(attI===i)attI=-1;else if(attI>i)attI--;confirm=-1;paint();return;
       }
       if(name==='apply'){
         if(draft.some(function(p){return !p.name.trim()})){var e=$('#p-err');e.textContent='Every project needs a name.';e.hidden=false;return}
@@ -2151,6 +2208,8 @@ function openProjects(){
         // Tasks of a deleted project follow its destination: another project, No project, or deletion.
         state.tasks=state.tasks.filter(function(t){return !(removed[t.projectId]&&dest(t.projectId)==='__del')});
         state.tasks.forEach(function(t){if(removed[t.projectId])t.projectId=dest(t.projectId)||''});
+        draft.forEach(function(p){if(!p.att)delete p.att});
+        applied=true;Object.keys(ctls).forEach(function(k){ctls[k].saved()});
         state.projects=draft;state.meta.cardStyle=cstyle;commit();closeModal();
         var gone=Object.keys(removed).length;
         if(JSON.stringify(state)!==snap)offerUndo(gone===1?'Project deleted':gone?gone+' projects deleted':'Projects updated',snap);
@@ -2161,11 +2220,11 @@ function openProjects(){
 /* ---------- backup dialog ---------- */
 function backupJson(){return JSON.stringify(state,null,2)}
 function csvText(){
-  var cols=['ref','title','project','stage','priority','assignee','start','due','blocked','repeats','created','completed','archived','color','notes'];
+  var cols=['ref','title','project','stage','priority','assignee','start','due','blocked','repeats','attachments','created','completed','archived','color','notes'];
   // Cells starting with = + - @ tab or CR run as formulas in Excel and Sheets; a leading ' keeps them as text.
   var q=function(v){v=String(v==null?'':v);if(/^[=+\-@\t\r]/.test(v))v="'"+v;return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   var rows=state.tasks.slice().sort(byOrder).map(function(t){var p=projectOf(projKey(t)),s=stageOf(stageKey(t));
-    return [t.ref,t.title,p?p.name:'',s.name,t.priority,t.assignee,t.start,t.due,t.blocked?'yes':'no',repeatLabel(t.repeat),t.createdAt,t.doneAt,t.archivedAt||'',cardColor(t),t.desc].map(q).join(',')});
+    return [t.ref,t.title,p?p.name:'',s.name,t.priority,t.assignee,t.start,t.due,t.blocked?'yes':'no',repeatLabel(t.repeat),attText(t.att),t.createdAt,t.doneAt,t.archivedAt||'',cardColor(t),t.desc].map(q).join(',')});
   return '﻿'+cols.join(',')+'\r\n'+rows.join('\r\n')+'\r\n';
 }
 function fileType(name){var x=(name.match(/\.(\w+)$/)||[])[1];return {csv:'text/csv',html:'text/html',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}[x]||'application/json'}
@@ -2186,15 +2245,16 @@ function lastDlHtml(){
   return '<span class="last-dl'+(stale?' stale':'')+'" title="'+(last?esc(new Date(last).toLocaleString()):'')+'"><i></i>'+(last?'Last download '+agoDays(last):'No backup downloaded yet')+'</span>';
 }
 function openBackup(){
-  var pending=null,pendingName='',armedReplace=false;
+  var pending=null,pendingName='',pendingFiles=null,armedReplace=false,nFiles=Object.keys(attRefs(state)).length;
   var body='<div class="sec"><h3>Automatic backup</h3><div id="ab-sec">'+abSectionHtml()+'</div></div>'
     +'<div class="sec"><h3>Manual backup</h3>'
-    +'<div class="row-btns"><button class="btn primary" type="button" data-m="dl-json">'+ic('download-simple')+'Download backup (.json)</button><button class="btn" type="button" data-m="dl-csv">'+ic('table')+'Export CSV</button><button class="btn" type="button" data-m="copy">'+ic('copy')+'Copy as text</button><span id="last-dl">'+lastDlHtml()+'</span></div>'
+    +'<div class="row-btns"><button class="btn primary" type="button" data-m="dl-json">'+ic('download-simple')+'Download backup (.json)</button><button class="btn" type="button" data-m="dl-csv">'+ic('table')+'Export CSV</button><button class="btn" type="button" data-m="copy">'+ic('copy')+'Copy as text</button>'
+    +(nFiles?'<button class="btn" type="button" data-m="dl-zip" title="The board plus its '+nFiles+' attached file'+(nFiles===1?'':'s')+', in one .zip">'+ic('file-zip')+'With files (.zip)</button>':'')+'<span id="last-dl">'+lastDlHtml()+'</span></div>'
     +'<p class="msg" id="b-msg" role="status" hidden></p>'
     +'<div id="b-det" hidden><textarea class="json" id="b-text" rows="6" readonly aria-label="Backup JSON"></textarea></div></div>'
     +'<div class="sec edit-only"><h3>Restore</h3>'
-    +'<div class="dropzone" id="b-drop">'+ic('file-arrow-up')+'<div class="dz-txt"><b id="dz-name">No file chosen</b><small id="dz-sum">Drop a .json backup here, or choose a file.</small></div>'
-    +'<button class="btn sm" type="button" data-m="pick-file" id="dz-btn">Choose file</button><input id="b-file" type="file" accept=".json,application/json" hidden></div>'
+    +'<div class="dropzone" id="b-drop">'+ic('file-arrow-up')+'<div class="dz-txt"><b id="dz-name">No file chosen</b><small id="dz-sum">Drop a .json or .zip backup here, or choose a file.</small></div>'
+    +'<button class="btn sm" type="button" data-m="pick-file" id="dz-btn">Choose file</button><input id="b-file" type="file" accept=".json,.zip,application/json,application/zip" hidden></div>'
     +'<div class="restore-row" id="r-row" hidden><span class="msg" id="r-msg" role="status"></span>'
     +'<button class="btn danger" type="button" id="b-restore" data-m="restore">Replace this board</button><button class="btn" type="button" id="b-restore-new" data-m="restore-new">Open as new board</button></div></div>';
   function readFile(f){
@@ -2202,13 +2262,21 @@ function openBackup(){
     var rb=$('[data-m=restore]');if(rb){rb.classList.remove('armed');rb.textContent='Replace this board'}
     if(!f)return;
     pendingName=f.name;$('#dz-name').textContent=f.name;$('#dz-btn').textContent='Choose another';
-    var sum=$('#dz-sum'),rd=new FileReader();
-    rd.onload=function(){
+    var sum=$('#dz-sum'),rd=new FileReader();pendingFiles=null;
+    rd.onload=async function(){
       try{
-        var s=normalize(JSON.parse(String(rd.result)));pending=s;
+        // A .zip backup holds the board's .json plus its attached files under attachments/.
+        var buf=rd.result,u8=new Uint8Array(buf),text;
+        if(u8[0]===0x50&&u8[1]===0x4b){
+          var ent=await unzip(buf),jn=Object.keys(ent).filter(function(k){return /\.json$/i.test(k)&&k.indexOf('attachments/')!==0})[0];
+          if(!jn)throw new Error('The zip archive has no board backup (.json) in it.');
+          text=new TextDecoder().decode(ent[jn]);pendingFiles=ent;
+        }else text=new TextDecoder().decode(u8);
+        var s=normalize(JSON.parse(text));pending=s;
         var n=function(k,w){return k+' '+w+(k===1?'':'s')};
         var saved=s.meta.updatedAt&&!isNaN(Date.parse(s.meta.updatedAt))?fmtShort(isoLocal(new Date(s.meta.updatedAt))):'';
-        sum.className='';sum.textContent=n(s.tasks.length,'task')+' · '+n(s.projects.length,'project')+' · '+n(s.stages.length,'stage')+(saved?' · saved '+saved:'');
+        var nf=pendingFiles?Object.keys(pendingFiles).filter(function(k){return k.indexOf('attachments/')===0}).length:0;
+        sum.className='';sum.textContent=n(s.tasks.length,'task')+' · '+n(s.projects.length,'project')+' · '+n(s.stages.length,'stage')+(nf?' · '+n(nf,'attached file'):'')+(saved?' · saved '+saved:'');
         // What replacing would change, before anything happens.
         var have=Object.create(null),got=Object.create(null);state.tasks.forEach(function(t){have[t.id]=1});s.tasks.forEach(function(t){got[t.id]=1});
         var lost=state.tasks.filter(function(t){return !got[t.id]}).length,back=s.tasks.filter(function(t){return !have[t.id]}).length,parts=[];
@@ -2219,7 +2287,7 @@ function openBackup(){
       }catch(e){sum.className='err';sum.textContent=(e&&e.message)||'That file could not be read as a backup.'}
     };
     rd.onerror=function(){sum.className='err';sum.textContent='The file could not be read.'};
-    rd.readAsText(f);
+    rd.readAsArrayBuffer(f);
   }
   openModal({title:'Backup and restore',wide:'x',noFocus:true,noDirty:true,body:body,foot:'<span class="sp"></span><button class="btn" type="button" data-close>Done</button>',
     mount:function(){
@@ -2245,6 +2313,13 @@ function openBackup(){
         if(r==='ok'){state.meta.lastBackupAt=new Date().toISOString();commit();say('Backup saved.','ok');$('#last-dl').innerHTML=lastDlHtml()}
         else if(r==='declined')say('Download cancelled.');
         else{showText();say('Downloads are not available in this view. Use Copy as text, or copy the text below into a file.','err')}
+      }else if(name==='dl-zip'){
+        btn.disabled=true;say('Collecting attached files…');
+        try{var z=await backupZip(),rz=await saveFile(slug(state.meta.title)+'-backup-'+isoLocal(new Date())+'.zip',z.bytes);
+          if(rz==='ok'){state.meta.lastBackupAt=new Date().toISOString();commit();say('Backup saved with '+z.files+' file'+(z.files===1?'':'s')+(z.missing?'; '+z.missing+' could not be read and '+(z.missing===1?'was':'were')+' left out':'')+'.',z.missing?'err':'ok');$('#last-dl').innerHTML=lastDlHtml()}
+          else say(rz==='declined'?'Download cancelled.':'Downloads are not available in this view.',rz==='declined'?'':'err')}
+        catch(e){say('The backup could not be built: '+(e&&e.message||e),'err')}
+        btn.disabled=false;
       }else if(name==='dl-csv'){
         var r2=await saveFile(slug(state.meta.title)+'-tasks-'+isoLocal(new Date())+'.csv',csvText());
         if(r2==='ok')say('CSV saved.','ok');else if(r2==='declined')say('Download cancelled.');else say('Downloads are not available in this view.','err');
@@ -2252,7 +2327,9 @@ function openBackup(){
         try{await navigator.clipboard.writeText(backupJson());state.meta.lastBackupAt=new Date().toISOString();commit();say('Backup copied to the clipboard.','ok');$('#last-dl').innerHTML=lastDlHtml()}
         catch(e){var ta=showText();ta.focus();ta.select();say('Copy was blocked. The text is selected below, press Ctrl+C or Cmd+C.','err')}
       }else if(name==='restore-new'&&pending){
-        var nb=await createBoard(pending.meta.title||'Restored board',pending);toast('Backup opened as the new board “'+nb.title+'”.',5000);
+        var pf=pendingFiles,nb=await createBoard(pending.meta.title||'Restored board',pending);
+        var ni=pf?await attImport(pf):0;if(ni)commit();
+        toast('Backup opened as the new board “'+nb.title+'”'+(ni?' with '+ni+' attached file'+(ni===1?'':'s'):'')+'.',5000);
       }else if(name==='restore'&&pending&&!btn.classList.contains('armed')){
         var cn=state.tasks.length;btn.classList.add('armed');
         btn.textContent='Click again to replace all '+cn+' card'+(cn===1?'':'s')+' in “'+(state.meta.title||'this board')+'” with the '+pending.tasks.length+' in the file';
@@ -2264,9 +2341,258 @@ function openBackup(){
             $('#r-msg').textContent='The copy of the current board could not be downloaded'+(rr==='declined'?' (cancelled)':'')+'. Click again to replace anyway; Undo stays available for a few seconds.';return}
         }
         var snap=JSON.stringify(state);
-        state=pending;state.meta.sample=!!state.meta.sample;commit();closeModal();offerUndo('Backup restored from '+pendingName,snap);
+        state=pending;state.meta.sample=!!state.meta.sample;
+        var ri=pendingFiles?await attImport(pendingFiles):0;
+        commit();closeModal();offerUndo('Backup restored from '+pendingName+(ri?' with '+ri+' attached file'+(ri===1?'':'s'):''),snap);
       }
     }});
+}
+
+/* ---------- attachments: links and files on tasks and projects ----------
+   Links (web addresses or shared-drive paths) work on every board and travel in backups.
+   Files are saved in the backup folder under attachments/<board>/, or in this browser until a backup folder
+   is chosen (then they move into the folder). Shared boards take links only: a file saved on one person's
+   computer could not be opened by anyone else. A file is removed from disk only when its task, project or
+   attachment is deleted for good, after the Undo window; finishing or archiving a task keeps its files. */
+var ATT_MAX=25*1024*1024,ATT_COUNT=50,ATT_GC_MS=30000;
+function safeName(n){return clip(String(n||'').replace(/[\\\/:*?"<>|\x00-\x1f]/g,'_').replace(/^\.+/,'').trim(),150)}
+// Web links open; anything else that looks like a path is kept as text and copied on click (browsers block file: links).
+function linkTarget(u){u=String(u||'').trim();if(/^https?:\/\/[^\s]+$/i.test(u))return u;if(/^(\\\\|[a-z]:[\\\/]|\/|~\/|smb:\/\/|file:\/\/)/i.test(u)&&!/[\x00-\x1f]/.test(u))return u;return ''}
+function isWeb(u){return /^https?:\/\//i.test(u)}
+function normAtt(a){
+  if(!Array.isArray(a))return null;
+  var out=[],seen=Object.create(null);
+  a.forEach(function(x){
+    if(!isObj(x))return;var id=String(x.id||'');if(!/^a_\w{1,24}$/.test(id)||seen[id])return;seen[id]=1;
+    var at=typeof x.addedAt==='string'?x.addedAt:'';
+    if(x.kind==='link'){var u=linkTarget(x.url);if(u)out.push({id:id,kind:'link',name:clip(cleanName(x.name)||u,200),url:clip(u,2000),addedAt:at})}
+    else if(x.kind==='file'){var dir=x.store==='dir'&&/^attachments\/[^\/]+\/[^\/]+$/.test(String(x.path||''))&&!/\.\./.test(x.path);
+      out.push({id:id,kind:'file',name:safeName(x.name)||'file',size:Math.max(0,+x.size||0),type:clip(String(x.type||''),100),store:dir?'dir':'idb',path:dir?String(x.path):'',addedAt:at})}
+  });
+  return out.length?out.slice(0,ATT_COUNT):null;
+}
+function fmtSize(n){return n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(n<10485760?1:0)+' MB'}
+function attIcon(a){
+  if(a.kind==='link')return isWeb(a.url)?'link':'folder-simple';
+  var n=a.name.toLowerCase(),t=(a.type||'')+' '+n;
+  return /pdf/.test(t)?'file-pdf':/^image\//.test(a.type)||/\.(png|jpe?g|gif|tiff?|webp|bmp|svg)$/.test(n)?'file-image':/sheet|excel|\.(xlsx?|csv)$/.test(t)?'file-xls'
+    :/word|\.docx?$/.test(t)?'file-doc':/presentation|\.pptx?$/.test(t)?'file-ppt':/\.(zip|7z|gz|tar)$/.test(n)?'file-zip':'file';
+}
+function attStem(boardId){return abFileName(boardId||curBoard).replace(/-backup\.json$/,'')}
+function attFileName(rec){return rec.id.slice(2)+'-'+safeName(rec.name)}
+function attDb(){return idb||ab.db}
+// The backup folder with write permission, or null. Asking needs a click, so only clicks pass ask=true.
+async function attRoot(ask){
+  if(!ab.folders||storage!=='local')return null;
+  var d=ab.dir;
+  if(!d){try{var db=attDb();if(db)d=await idbTx('readonly',function(s){return s.get(AB_DIR)},db)}catch(e){}}
+  if(!d)return null;
+  var p='prompt';try{p=await d.queryPermission({mode:'readwrite'})}catch(e){}
+  if(p!=='granted'&&ask){try{p=await d.requestPermission({mode:'readwrite'})}catch(e){}}
+  return p==='granted'?d:null;
+}
+async function attSub(root,boardId,create){var a=await root.getDirectoryHandle('attachments',{create:!!create});return a.getDirectoryHandle(attStem(boardId),{create:!!create})}
+// Saves the bytes of rec (a file record) for the current board and fills in where they went.
+async function attSave(rec,blob,root){
+  if(root===undefined)root=await attRoot(true);
+  if(root){var fn=attFileName(rec),sub=await attSub(root,curBoard,true);await abWriteTo(await sub.getFileHandle(fn,{create:true}),blob);rec.store='dir';rec.path='attachments/'+attStem(curBoard)+'/'+fn;return rec}
+  var db=attDb();if(!db)throw new Error('This browser cannot store files here. Add a link instead.');
+  await idbTx('readwrite',function(s){return s.put({name:rec.name,type:rec.type,blob:blob},'att:'+curBoard+':'+rec.id)},db);
+  rec.store='idb';rec.path='';return rec;
+}
+async function attAdd(file,root){
+  if(storage!=='local')throw new Error('Files cannot be attached on a shared board. Add a link to where the file is stored instead.');
+  if(file.size>ATT_MAX)throw new Error('“'+file.name+'” is '+fmtSize(file.size)+'; files can be up to 25 MB. Add a link to it instead.');
+  var rec={id:uid('a_'),kind:'file',name:safeName(file.name)||'file',size:file.size,type:clip(file.type||'',100),addedAt:new Date().toISOString()};
+  return attSave(rec,file,root);
+}
+async function attBlob(rec,boardId,ask){
+  boardId=boardId||curBoard;
+  if(rec.store==='dir'){
+    var root=await attRoot(ask!==false);if(!root)throw new Error('The backup folder needs your permission again. Resume the backup under Backup, then try again.');
+    var parts=rec.path.split('/'),d=root;
+    try{for(var i=0;i<parts.length-1;i++)d=await d.getDirectoryHandle(parts[i]);return await (await d.getFileHandle(parts[parts.length-1])).getFile()}
+    catch(e){throw new Error('“'+rec.name+'” is no longer in the backup folder ('+rec.path+').')}
+  }
+  var db=attDb(),v=null;try{if(db)v=await idbTx('readonly',function(s){return s.get('att:'+boardId+':'+rec.id)},db)}catch(e){}
+  if(!v||!v.blob)throw new Error('“'+rec.name+'” is not stored in this browser. It may have been attached on another computer.');
+  return v.blob;
+}
+async function attRemove(rec,boardId){
+  boardId=boardId||curBoard;
+  try{
+    if(rec.store==='dir'){var root=await attRoot(false);if(!root)return;var parts=rec.path.split('/'),d=root;for(var i=0;i<parts.length-1;i++)d=await d.getDirectoryHandle(parts[i]);await d.removeEntry(parts[parts.length-1])}
+    else{var db=attDb();if(db)await idbTx('readwrite',function(s){return s.delete('att:'+boardId+':'+rec.id)},db)}
+  }catch(e){}
+}
+async function attPurgeBoard(boardId){
+  try{var root=await attRoot(false);if(root){var a=await root.getDirectoryHandle('attachments');await a.removeEntry(attStem(boardId),{recursive:true})}}catch(e){}
+  try{var db=attDb();if(db){var keys=await idbTx('readonly',function(s){return s.getAllKeys()},db);
+    for(var i=0;i<keys.length;i++)if(String(keys[i]).indexOf('att:'+boardId+':')===0)await idbTx('readwrite',function(s){return s.delete(keys[i])},db)}}catch(e){}
+}
+function attOwners(st){var l=[];st.tasks.forEach(function(t){if(t.att)l.push(t)});st.projects.forEach(function(p){if(p.att)l.push(p)});return l}
+function attRefs(st){var m=Object.create(null);attOwners(st).forEach(function(o){o.att.forEach(function(a){if(a.kind==='file')m[a.id]=a})});return m}
+// Files whose last reference disappeared are deleted once the Undo window has passed, unless they came back.
+var attSeen={board:null,ids:null};
+function attTrack(){
+  if(!state||!loaded)return;
+  var now=attRefs(state);
+  if(attSeen.board!==curBoard||!attSeen.ids){attSeen={board:curBoard,ids:now};return}
+  var prev=attSeen.ids;attSeen.ids=now;
+  Object.keys(prev).forEach(function(id){if(now[id])return;var rec=prev[id],b=curBoard;
+    setTimeout(function(){if(curBoard!==b||!state||!loaded||attRefs(state)[rec.id])return;attRemove(rec,b)},ATT_GC_MS)});
+}
+// Files kept in this browser move into the backup folder once it can be written.
+var attMigrating=false;
+async function attMigrate(){
+  if(attMigrating||readOnly||storage!=='local'||!state||!loaded)return;
+  var root=await attRoot(false);if(!root)return;
+  var bid=curBoard,moved=0;attMigrating=true;
+  try{
+    var owners=attOwners(state);
+    for(var i=0;i<owners.length;i++){var list=owners[i].att;
+      for(var j=0;j<list.length;j++){var a=list[j];if(a.kind!=='file'||a.store!=='idb')continue;
+        try{var blob=await attBlob(a,bid,false);if(bid!==curBoard)return;var key='att:'+bid+':'+a.id;await attSave(a,blob,root);
+          await idbTx('readwrite',function(s){return s.delete(key)},attDb());moved++}catch(e){}}}
+  }finally{attMigrating=false}
+  if(moved&&bid===curBoard){commit();toast(moved+' attached file'+(moved===1?'':'s')+' moved into the backup folder.',4000)}
+}
+// Opens a file in a new tab when the browser can show it, otherwise downloads it. Paths are copied.
+async function attOpen(rec,dl){
+  if(rec.kind==='link'){
+    if(isWeb(rec.url)){var w=null;try{w=window.open(rec.url,'_blank','noopener')}catch(e){}if(!w)toast('The link could not be opened here: '+rec.url,6000);return}
+    try{await navigator.clipboard.writeText(rec.url);toast('Path copied. Paste it into File Explorer or Finder to open it.',5000)}catch(e){toast(rec.url,8000)}
+    return;
+  }
+  var blob;try{blob=await attBlob(rec)}catch(e){toast(e.message,7000);return}
+  var viewable=/^(image\/|text\/plain|application\/pdf)/.test(blob.type||rec.type);
+  if(!dl&&viewable){var url=URL.createObjectURL(blob),w2=null;try{w2=window.open(url,'_blank','noopener')}catch(e){}setTimeout(function(){URL.revokeObjectURL(url)},60000);if(w2)return}
+  var r=await saveFile(rec.name,blob);if(r!=='ok'&&r!=='declined')toast('Downloads are not available in this view.',4000);
+}
+function attWhere(){
+  if(storage!=='local')return 'Shared board: add links. Files can be attached on boards kept in this browser.';
+  if(ab.dir)return 'Files go to the backup folder under attachments/. Up to 25 MB each.';
+  return 'Files are kept in this browser (up to 25 MB each) and move into the backup folder once you choose one.';
+}
+function attRowsHtml(list,ctx,edit){
+  if(!list.length)return '<p class="att-empty">'+(edit?'No attachments yet.':'No attachments.')+'</p>';
+  return list.map(function(a){
+    var meta=a.kind==='link'?(isWeb(a.url)?a.url.replace(/^https?:\/\/(www\.)?/i,'').split('/')[0]:'Path · click to copy'):fmtSize(a.size)+(a.store==='dir'?' · backup folder':' · this browser');
+    return '<div class="att-row">'+ic(attIcon(a))+'<button class="att-name" type="button" data-m="att-open" data-ctx="'+esc(ctx)+'" data-id="'+esc(a.id)+'" title="'+esc(a.kind==='link'?a.url:'Open '+a.name)+'">'+esc(a.name)+'</button>'
+      +'<span class="att-meta">'+esc(meta)+'</span>'
+      +(a.kind==='file'?'<button class="icon-btn sm" type="button" data-m="att-dl" data-ctx="'+esc(ctx)+'" data-id="'+esc(a.id)+'" aria-label="Download '+esc(a.name)+'" title="Download">'+ic('download-simple')+'</button>':'')
+      +(edit?'<button class="icon-btn sm" type="button" data-m="att-rm" data-ctx="'+esc(ctx)+'" data-id="'+esc(a.id)+'" aria-label="Remove '+esc(a.name)+'" title="Remove">'+ic('x')+'</button>':'')+'</div>';
+  }).join('');
+}
+// The attachments box used by the task and project dialogs. get/set read and replace the draft list;
+// files saved while the dialog is open are deleted again if the dialog is closed without saving.
+function attCtl(ctx,get,set,label){
+  var edit=!readOnly,added=[];
+  function box(){return $('[data-att="'+cssEsc(ctx)+'"]')}
+  function paint(){var b=box();if(!b)return;var l=get();$('.att-list',b).innerHTML=attRowsHtml(l,ctx,edit);$('.att-n',b).textContent=l.length||'';var sig=$('#f-att-sig');if(sig&&ctx==='task')sig.value=l.map(function(a){return a.id}).join(',')}
+  function say(t,c){var b=box();if(!b)return;var m=$('.att-msg',b);m.textContent=t||'';m.className='att-msg'+(c?' '+c:'');m.hidden=!t}
+  async function addFiles(files){
+    files=Array.prototype.slice.call(files||[]);if(!files.length)return;
+    if(get().length+files.length>ATT_COUNT){say('At most '+ATT_COUNT+' attachments each.','err');return}
+    say('Saving '+files.length+' file'+(files.length===1?'':'s')+'…');
+    var root;try{root=storage==='local'?await attRoot(true):null}catch(e){root=null}
+    var errs=[];
+    for(var i=0;i<files.length;i++){try{var rec=await attAdd(files[i],root);added.push(rec);set(get().concat([rec]));paint()}catch(e){errs.push(e.message)}}
+    say(errs.join(' '),errs.length?'err':'');
+  }
+  return {
+    html:function(){var l=get();
+      return '<div class="att" data-att="'+esc(ctx)+'"><div class="att-head">'+ic('paperclip')+'<b>'+esc(label)+'</b><span class="att-n mono">'+(l.length||'')+'</span><span class="sp"></span>'
+        +(edit?(storage==='local'?'<button class="btn sm" type="button" data-m="att-file" data-ctx="'+esc(ctx)+'">'+ic('upload-simple')+'Add file</button>':'')
+          +'<button class="btn sm" type="button" data-m="att-link" data-ctx="'+esc(ctx)+'">'+ic('link')+'Add link</button>':'')+'</div>'
+        +(edit?'<div class="att-linkrow" hidden><input type="text" class="att-url" placeholder="https://… or a shared-drive path" aria-label="Link or path"><input type="text" class="att-label" placeholder="Name (optional)" aria-label="Link name">'
+          +'<button class="btn sm primary" type="button" data-m="att-link-ok" data-ctx="'+esc(ctx)+'">Add</button><button class="icon-btn sm" type="button" data-m="att-link-x" data-ctx="'+esc(ctx)+'" aria-label="Cancel">'+ic('x')+'</button></div>':'')
+        +'<div class="att-list">'+attRowsHtml(l,ctx,edit)+'</div><p class="att-msg" hidden></p>'
+        +(edit?'<p class="att-hint">'+(storage==='local'?'Drop files here. ':'')+esc(attWhere())+'</p><input type="file" class="att-input" multiple hidden>':'')+'</div>';
+    },
+    mount:function(){
+      var b=box();if(!b||!edit)return;
+      var inp=$('.att-input',b);if(inp)inp.addEventListener('change',function(){addFiles(inp.files);inp.value=''});
+      if(storage==='local'){
+        b.addEventListener('dragover',function(e){if(e.dataTransfer&&Array.prototype.indexOf.call(e.dataTransfer.types,'Files')>=0){e.preventDefault();b.classList.add('over')}});
+        b.addEventListener('dragleave',function(e){if(!b.contains(e.relatedTarget))b.classList.remove('over')});
+        b.addEventListener('drop',function(e){if(!e.dataTransfer||!e.dataTransfer.files.length)return;e.preventDefault();b.classList.remove('over');addFiles(e.dataTransfer.files)});
+      }
+      $$('.att-url,.att-label',b).forEach(function(x){x.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();b.querySelector('[data-m=att-link-ok]').click()}})});
+    },
+    // Handles an attachments action from this box; returns false for anything else.
+    action:function(name,btn){
+      if(!btn||!btn.dataset||btn.dataset.ctx!==ctx||name.indexOf('att-')!==0)return false;
+      var b=box(),id=btn.dataset.id,rec=id&&get().find(function(a){return a.id===id});
+      if(name==='att-file'){$('.att-input',b).click();return true}
+      if(name==='att-link'){var r=$('.att-linkrow',b);r.hidden=false;$('.att-url',r).focus();return true}
+      if(name==='att-link-x'){$('.att-linkrow',b).hidden=true;say('');return true}
+      if(name==='att-link-ok'){
+        var u=linkTarget($('.att-url',b).value);if(!u){say('Paste a web address (https://…) or a shared-drive path.','err');return true}
+        if(get().length>=ATT_COUNT){say('At most '+ATT_COUNT+' attachments each.','err');return true}
+        var nm=cleanName($('.att-label',b).value)||(isWeb(u)?decodeURIComponent((u.split(/[?#]/)[0].replace(/\/+$/,'').split('/').pop())||u):u.split(/[\\\/]/).filter(Boolean).pop()||u);
+        set(get().concat([{id:uid('a_'),kind:'link',name:clip(nm,200),url:u,addedAt:new Date().toISOString()}]));
+        $('.att-url',b).value='';$('.att-label',b).value='';$('.att-linkrow',b).hidden=true;say('');paint();return true;
+      }
+      if(name==='att-open'&&rec){attOpen(rec,false);return true}
+      if(name==='att-dl'&&rec){attOpen(rec,true);return true}
+      if(name==='att-rm'&&rec){set(get().filter(function(a){return a.id!==id}));paint();return true}
+      return true;
+    },
+    // After a save: files added here but removed again before saving are deleted now.
+    saved:function(){var keep=Object.create(null);get().forEach(function(a){keep[a.id]=1});added.forEach(function(a){if(!keep[a.id])attRemove(a)});added=[]},
+    discard:function(){added.forEach(function(a){attRemove(a)});added=[]}
+  };
+}
+function attChips(list,owner){
+  if(!list||!list.length)return '';
+  var shown=list.slice(0,4);
+  return '<span class="att-chips">'+shown.map(function(a){return '<button class="att-chip" type="button" data-act="att-open" data-owner="'+esc(owner)+'" data-id="'+esc(a.id)+'" title="'+esc(a.kind==='link'?a.url:a.name)+'">'+ic(attIcon(a))+'<span>'+esc(a.name)+'</span></button>'}).join('')
+    +(list.length>4?'<span class="att-more">+'+(list.length-4)+'</span>':'')+'</span>';
+}
+function attFind(owner,id){
+  var o=owner.indexOf('p:')===0?state.projects.find(function(p){return p.id===owner.slice(2)}):state.tasks.find(function(t){return t.id===owner.slice(2)});
+  return o&&o.att?o.att.find(function(a){return a.id===id}):null;
+}
+function attText(list){return (list||[]).map(function(a){return a.kind==='link'?a.name+(a.name!==a.url?' ('+a.url+')':''):a.name}).join('; ')}
+
+/* zip reading for restoring a backup with its files (stored or deflated entries) */
+async function unzip(buf){
+  var u=new Uint8Array(buf),v=new DataView(buf),e=-1;
+  for(var i=u.length-22;i>=Math.max(0,u.length-65558);i--)if(v.getUint32(i,true)===0x06054b50){e=i;break}
+  if(e<0)throw new Error('That file is not a zip archive.');
+  var n=v.getUint16(e+10,true),p=v.getUint32(e+16,true),out=Object.create(null),dec=new TextDecoder();
+  for(var k=0;k<n;k++){
+    if(v.getUint32(p,true)!==0x02014b50)throw new Error('The zip archive is damaged.');
+    var method=v.getUint16(p+10,true),cs=v.getUint32(p+20,true),nl=v.getUint16(p+28,true),xl=v.getUint16(p+30,true),cl=v.getUint16(p+32,true),off=v.getUint32(p+42,true);
+    var name=dec.decode(u.subarray(p+46,p+46+nl));p+=46+nl+xl+cl;
+    if(/\/$/.test(name))continue;
+    var start=off+30+v.getUint16(off+26,true)+v.getUint16(off+28,true),data=u.subarray(start,start+cs);
+    if(method===8){if(typeof DecompressionStream!=='function')throw new Error('This browser cannot read compressed zip files.');
+      data=new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer())}
+    else if(method!==0)continue;
+    out[name]=data;
+  }
+  return out;
+}
+// Puts the files from a restored zip back for the current board and points the records at them.
+async function attImport(files){
+  if(!files||storage!=='local')return 0;
+  var root=await attRoot(true),n=0;
+  for(var o=attOwners(state),i=0;i<o.length;i++)for(var j=0;j<o[i].att.length;j++){
+    var a=o[i].att[j];if(a.kind!=='file')continue;
+    var bytes=files['attachments/'+attFileName(a)];if(!bytes)continue;
+    try{await attSave(a,new Blob([bytes],{type:a.type||''}),root);n++}catch(e){}
+  }
+  return n;
+}
+async function backupZip(){
+  var files=[{name:slug(state.meta.title)+'-backup.json',data:backupJson()}],miss=0,seen=Object.create(null);
+  var recs=attRefs(state),ids=Object.keys(recs);
+  if(ids.length)await attRoot(true);
+  for(var i=0;i<ids.length;i++){var a=recs[ids[i]],fn='attachments/'+attFileName(a);if(seen[fn])continue;seen[fn]=1;
+    try{files.push({name:fn,data:new Uint8Array(await (await attBlob(a,curBoard,false)).arrayBuffer())})}catch(e){miss++}}
+  return {bytes:zipStore(files),files:files.length-1,missing:miss};
 }
 
 /* ---------- exports: Excel workbook and shareable report ---------- */
@@ -2384,17 +2710,17 @@ function boardWorkbook(){
   var all=projStats(tasks);
   // Summary
   var sum=[[{v:title,s:XS.title}],[{v:'Exported '+longDate()+' · '+all.tasks+' tasks on the board · '+state.projects.length+' projects',s:XS.muted}],[],
-    H(['Project','Tasks','Done','Open','Overdue','Blocked','% done','First date','Last deadline','Next deadline','Next task'])];
+    H(['Project','Tasks','Done','Open','Overdue','Blocked','% done','First date','Last deadline','Next deadline','Next task','Project files and links'])];
   projs.forEach(function(p){var st=projStats(byP(p.id));
-    sum.push([p.name,st.tasks,st.done,st.open,st.late,st.blocked,{v:st.pct,s:XS.pct},st.start,st.end,st.next?st.next.due:'',st.next?st.next.ref+' '+st.next.title:''])});
-  sum.push([{v:'All projects',s:XS.bold},{v:all.tasks,s:XS.bold},{v:all.done,s:XS.bold},{v:all.open,s:XS.bold},{v:all.late,s:XS.bold},{v:all.blocked,s:XS.bold},{v:all.pct,s:XS.boldPct},{v:'',s:XS.bold},{v:'',s:XS.bold},{v:'',s:XS.bold},{v:'',s:XS.bold}]);
+    sum.push([p.name,st.tasks,st.done,st.open,st.late,st.blocked,{v:st.pct,s:XS.pct},st.start,st.end,st.next?st.next.due:'',st.next?st.next.ref+' '+st.next.title:'',{v:attText(p.att),s:XS.wrap}])});
+  sum.push([{v:'All projects',s:XS.bold},{v:all.tasks,s:XS.bold},{v:all.done,s:XS.bold},{v:all.open,s:XS.bold},{v:all.late,s:XS.bold},{v:all.blocked,s:XS.bold},{v:all.pct,s:XS.boldPct},{v:'',s:XS.bold},{v:'',s:XS.bold},{v:'',s:XS.bold},{v:'',s:XS.bold},{v:'',s:XS.bold}]);
   sum.push([],[{v:'By stage',s:XS.bold}],H(['Stage','Tasks','WIP limit','Counts as done']));
   state.stages.forEach(function(s){sum.push([s.name,tasks.filter(function(t){return !t.archived&&stageKey(t)===s.id}).length,s.wip||'',s.done?'Yes':'No'])});
-  var sheets=[{name:sheetName('Summary',used),cols:[34,8,8,8,10,10,9,13,14,14,44],rows:sum,freeze:4,headRow:3,first:true}];
+  var sheets=[{name:sheetName('Summary',used),cols:[34,8,8,8,10,10,9,13,14,14,44,48],rows:sum,freeze:4,headRow:3,first:true}];
   // Task tables
-  var cols=['Ref','Task','Project','Stage','Status','Priority','Assignee','Start','Due','Done on','Blocked','Repeats','Notes'],widths=[9,46,28,14,10,10,16,13,13,13,9,16,60];
+  var cols=['Ref','Task','Project','Stage','Status','Priority','Assignee','Start','Due','Done on','Blocked','Repeats','Attachments','Notes'],widths=[9,46,28,14,10,10,16,13,13,13,9,16,40,60];
   var row=function(t,withProj){var p=projectOf(projKey(t)),r=[t.ref,t.title];if(withProj)r.push(p?p.name:'No project');
-    return r.concat([stageOf(stageKey(t)).name,statusOf(t),priLabel(t.priority),t.assignee,t.start,t.due,doneDay(t),t.blocked?'Yes':'',repeatLabel(t.repeat),{v:t.desc,s:XS.wrap}])};
+    return r.concat([stageOf(stageKey(t)).name,statusOf(t),priLabel(t.priority),t.assignee,t.start,t.due,doneDay(t),t.blocked?'Yes':'',repeatLabel(t.repeat),{v:attText(t.att),s:XS.wrap},{v:t.desc,s:XS.wrap}])};
   var sorted=tasks.slice().sort(function(a,b){var pa=projs.findIndex(function(p){return p.id===projKey(a)}),pb=projs.findIndex(function(p){return p.id===projKey(b)});return pa-pb||byStageDue(a,b)});
   sheets.push({name:sheetName('All tasks',used),cols:widths,rows:[H(cols)].concat(sorted.map(function(t){return row(t,true)})),freeze:1,filter:0,headRow:0});
   var pc=cols.filter(function(c){return c!=='Project'}),pw=widths.filter(function(w,i){return i!==2});
@@ -2419,6 +2745,11 @@ function boardWorkbook(){
 
 /* Shareable report: one self-contained HTML file (no scripts) in a light, print-ready layout.
    Anyone can open it in a browser; Print → Save as PDF turns it into a PDF. */
+// Attachment names for the report: links stay clickable; files are named only (their contents are not shared).
+function repAtt(list,inline){
+  if(!list||!list.length)return '';
+  return (inline?'':'<div class="att">')+list.map(function(a){return a.kind==='link'&&isWeb(a.url)?'<a href="'+esc(a.url)+'">'+esc(a.name)+'</a>':'<span>'+esc(a.name)+'</span>'}).join(' · ')+(inline?'':'</div>');
+}
 function reportHtml(o){
   o=o||{};
   var title=state.meta.title||'Lab Task Board',live=state.tasks.filter(function(t){return !t.archived});
@@ -2444,6 +2775,7 @@ function reportHtml(o){
     var list=inScope.filter(function(t){return projKey(t)===p.id}).sort(byStageDue),s=projStats(list);
     var shown=o.done===false?list.filter(function(t){return !isDone(t)}):list;
     h+='<section class="proj" style="--pc:'+esc(p.color)+'"><div class="ph"><h2><i class="sq"></i>'+esc(p.name)+'</h2><span class="m">'+s.tasks+' tasks · '+s.done+' done'+(s.late?' · <span class="red">'+s.late+' overdue</span>':'')+'</span>'+bar(s.pct)+'<span class="m">'+Math.round(s.pct*100)+'%</span></div>';
+    if(p.att)h+='<p class="patt">'+repAtt(p.att,true)+'</p>';
     var dated=shown.filter(function(t){return t.due}).sort(function(x,y){return tlStart(x)-tlStart(y)||toDay(x.due)-toDay(y.due)});
     if(o.timeline!==false&&dated.length){
       var a=Math.min(TODAY,Math.min.apply(null,dated.map(tlStart)))-2,z=Math.max(TODAY,Math.max.apply(null,dated.map(function(t){return toDay(t.due)})))+3,span=z-a+1;
@@ -2456,7 +2788,7 @@ function reportHtml(o){
     }
     h+=shown.length?'<table class="t"><thead><tr><th>Ref</th><th>Task</th><th>Stage</th><th>Assignee</th><th>Due</th><th>Status</th></tr></thead><tbody>'
       +shown.map(function(t){return '<tr><td class="m">'+esc(t.ref)+'</td><td><span class="tt">'+esc(t.title)+'</span>'+(t.repeat?' <span class="rep">↻ '+esc(repeatLabel(t.repeat).toLowerCase())+'</span>':'')
-        +(o.notes&&t.desc?'<div class="note">'+esc(t.desc)+'</div>':'')+'</td><td>'+esc(stageOf(stageKey(t)).name)+'</td><td>'+esc(t.assignee||'—')+'</td><td class="m">'+fd(t.due)+'</td><td>'+badge(t)+'</td></tr>'}).join('')+'</tbody></table>'
+        +(o.notes&&t.desc?'<div class="note">'+esc(t.desc)+'</div>':'')+repAtt(t.att)+'</td><td>'+esc(stageOf(stageKey(t)).name)+'</td><td>'+esc(t.assignee||'—')+'</td><td class="m">'+fd(t.due)+'</td><td>'+badge(t)+'</td></tr>'}).join('')+'</tbody></table>'
       :'<p class="empty">'+(list.length?'All tasks in this project are done.':'No tasks in this project yet.')+'</p>';
     h+='</section>';
   });
@@ -2481,6 +2813,7 @@ function reportHtml(o){
     +'.ov{position:absolute;inset:0;display:grid;grid-template-columns:34% 1fr;pointer-events:none}.ovp{position:relative}.today{position:absolute;top:0;bottom:0;width:2px;background:#5d5294;transform:translateX(-1px);opacity:.7;z-index:1}'
     +'.gr{display:grid;grid-template-columns:34% 1fr;align-items:center;height:24px}.gl{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:10px}'
     +'.gp{position:relative;height:100%}.gp b{position:absolute;top:6px;height:12px;min-width:6px;border-radius:4px;background:var(--pc)}.gp b.done{background:repeating-linear-gradient(135deg,var(--pc) 0 4px,rgba(255,255,255,.55) 4px 8px)}.gp b.late{box-shadow:0 0 0 2px #b3263a}'
+    +'.att{margin-top:3px;font-size:12px;color:#5f6377}.att a,.patt a{color:#5d5294}.patt{margin:-6px 0 12px;font-size:12.5px;color:#5f6377}.patt:before,.att:before{content:"📎 "}'
     +'.empty{color:#5f6377;margin:0}footer{margin-top:24px;font-size:12px;color:#5f6377}'
     +'@media (max-width:700px){main{padding:24px 16px}.kpis{grid-template-columns:repeat(2,1fr)}.glance td:nth-child(6),.glance th:nth-child(6){display:none}}'
     +'@page{margin:14mm}@media print{body{background:#fff}main{padding:0;max-width:none}section,.k{box-shadow:0 0 0 1px rgba(29,31,44,.18)}tr{break-inside:avoid}}';
@@ -2565,7 +2898,7 @@ async function abInit(){
     var p='prompt';try{p=await hd.queryPermission({mode:'readwrite'})}catch(e){}
     if(bid!==curBoard)return;
     if(p==='granted'&&ui.abPaused[key]){ab.state='paused';ab.userPaused=true;syncAbChip()}
-    else if(p==='granted'){ab.state='on';syncAbChip();abWrite()}
+    else if(p==='granted'){ab.state='on';syncAbChip();abWrite();if(dir)attMigrate()}
     // After a browser restart the folder needs one OK, asked once per visit (not once per board).
     else{ab.state='paused';syncAbChip();if($('#overlay').hidden&&!readOnly&&!ab.asked[key]){ab.asked[key]=1;openAbReconnect()}}
     return;
@@ -2632,7 +2965,7 @@ async function abChoose(){
   if(bid!==curBoard)return false;
   ab.dir=d;ab.handle=null;ab.state='on';ab.userPaused=false;delete ui.abPaused['*'];ui.abDontAsk=false;savePrefs();
   try{if(ab.db)await idbTx('readwrite',function(s){return s.put(d,AB_DIR)},ab.db)}catch(e){}
-  var n=await abWriteAll();
+  var n=await abWriteAll();attMigrate();
   if(ab.state==='on')toast('Automatic backup on. '+(n>1?n+' boards':'This board')+' saved to the folder “'+(d.name||'backup')+'”, each to its own file, after every change.',6000);
   return ab.state==='on';
 }
@@ -2842,6 +3175,7 @@ document.addEventListener('click',function(e){
   if(!state||!loaded)return;
   if(a){
     if(k==='rename-stage'){renameStage(a);return}
+    if(k==='att-open'){var ar=attFind(a.dataset.owner,a.dataset.id);if(ar)attOpen(ar,false);return}
     if(k==='f-overdue'||k==='f-blocked'||k==='f-week'){var fk=k.slice(2);ui.f[fk]=!ui.f[fk];render();return}
     if(k==='clear-filters'){clearFilters();return}
     if(k==='restore-file'){openBackup();var fi=$('#b-file');if(fi)fi.click();return}
