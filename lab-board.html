@@ -400,6 +400,17 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
 .task-side .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .task-side input[type=date]{padding:6px 6px 6px 8px;font-size:11.5px}
 .task-side input[type=date]::-webkit-calendar-picker-indicator{margin-left:2px;width:12px;padding:0}
+.rep-custom{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;color:var(--soft)}
+.modal .rep-custom input{width:64px;min-height:30px;padding:4px 8px;font-family:var(--f-mono);font-size:12.5px}
+.modal .rep-custom select{width:auto;min-height:30px;padding:4px 26px 4px 8px;font-size:12.5px;background-position:right 8px center}
+.rep-note{font-size:11.5px;color:var(--muted);margin-top:2px}
+.card-top .rep{font-size:12px;color:var(--muted);flex:none;margin-left:-4px}
+.hist{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--divider)}
+.hist-head{display:flex;align-items:center;gap:8px;font-size:13px}
+.hist-head .ph{color:var(--accent)}
+.hist-head b{font-weight:500}
+.hist-head .mono{margin-left:auto;font-size:11.5px;color:var(--muted)}
+.hist-t td{padding:4px 5.6px}
 .kb-hint{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 .wrapx{position:relative;display:block}
 .wrapx .lead{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none}
@@ -486,6 +497,13 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
 .task-cp .pal{grid-template-columns:repeat(6,24px);gap:6px}
 .task-cp .pal .sw{width:24px;height:24px}
 .task-cp .pal .sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--fg)}
+
+/* export dialog */
+.rp-opts{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 18px;margin-top:4px}
+.rp-opts .fld{min-width:220px}
+.rp-opts .chk{font-size:13px;padding-bottom:8px}
+.rp-frame{border-radius:var(--r-md);box-shadow:0 0 0 1px var(--divider);overflow:hidden;background:#eef0f6;height:380px}
+.rp-frame iframe{width:166.667%;height:166.667%;border:0;transform:scale(.6);transform-origin:0 0;display:block}
 
 /* backup dialog */
 .ab-card{display:flex;align-items:center;gap:12px;padding:12px;border-radius:var(--r-md);background:var(--side);flex-wrap:wrap}
@@ -611,6 +629,7 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
       <button class="btn edit-only" id="btn-projects" type="button"><i class="ph ph-folders" aria-hidden="true"></i>Projects</button>
       <button class="btn edit-only" id="btn-stages" type="button"><i class="ph ph-columns" aria-hidden="true"></i>Stages</button>
       <button class="btn" id="btn-archive" type="button" hidden><i class="ph ph-archive" aria-hidden="true"></i>Archived<span class="n" id="arch-n"></span></button>
+      <button class="btn" id="btn-export" type="button"><i class="ph ph-export" aria-hidden="true"></i>Export</button>
       <button class="btn" id="btn-backup" type="button"><i class="ph ph-floppy-disk" aria-hidden="true"></i>Backup<span class="dot-stale" id="stale-dot"></span></button>
     </div>
   </div>
@@ -782,10 +801,48 @@ function normTask(x,i,ctx){
     start:start,due:due,color:typeof x.color==='string'&&HEX.test(x.color)?retune(x.color.toLowerCase()):'',
     blocked:!!x.blocked,order:typeof x.order==='number'&&isFinite(x.order)?x.order:(i+1)*10,createdAt:String(x.createdAt||new Date().toISOString()),doneAt:String(x.doneAt||'')};
   if(x.sample)t.sample=true;
+  var rp=normRepeat(x.repeat);if(rp)t.repeat=rp;
+  if(typeof x.series==='string'&&x.series)t.series=clip(x.series,60);
+  if(x.spawned)t.spawned=true;
   if(x.archived){t.archived=true;t.archivedAt=typeof x.archivedAt==='string'?x.archivedAt:new Date().toISOString()}
   return t;
 }
 var LENIENT={lenient:true};
+/* ---------- repeating tasks ----------
+   A repeating task carries {every, unit}. Moving it into a done stage creates the next occurrence (same
+   series id, dates moved forward on the original cadence) and leaves the finished one as a record, so the
+   series keeps a history of when each occurrence was due and when it was done. */
+var REPEAT_UNITS={day:'day',week:'week',month:'month'};
+function normRepeat(r){if(!isObj(r)||!REPEAT_UNITS[r.unit])return null;var n=Math.floor(Number(r.every));return n>=1&&n<=365?{every:n,unit:r.unit}:null}
+function repeatLabel(r){if(!r)return '';var u=r.unit;return r.every===1?{day:'Every day',week:'Every week',month:'Every month'}[u]:'Every '+r.every+' '+u+'s'}
+function addRepeat(day,r){
+  if(r.unit!=='month')return day+r.every*(r.unit==='week'?7:1);
+  var d=new Date(day*DAY),y=d.getUTCFullYear(),m=d.getUTCMonth()+r.every,dd=d.getUTCDate();
+  var last=new Date(Date.UTC(y,m+1,0)).getUTCDate();return Math.round(Date.UTC(y,m,Math.min(dd,last))/DAY);
+}
+function doneDay(t){return t.doneAt&&!isNaN(Date.parse(t.doneAt))?isoLocal(new Date(t.doneAt)):''}
+function seriesOf(t){var k=t.series||t.id;return state.tasks.filter(function(x){return (x.series||x.id)===k})}
+// The next due date keeps the original rhythm; occurrences missed while the task sat undone are skipped.
+function nextDates(t){
+  var base=t.due?toDay(t.due):(doneDay(t)?toDay(doneDay(t)):TODAY),len=t.due&&t.start?Math.max(0,toDay(t.due)-toDay(t.start)):0;
+  var nd=addRepeat(base,t.repeat);for(var i=0;nd<TODAY&&i<5000;i++)nd=addRepeat(nd,t.repeat);
+  return {start:fromDay(nd-len),due:fromDay(nd)};
+}
+function spawnRepeats(){
+  if(readOnly||!state)return [];
+  var made=[],open=state.stages.find(function(s){return !s.done})||state.stages[0];
+  state.tasks.slice().forEach(function(t){
+    if(!t.repeat||t.spawned||t.archived||!isDone(t))return;
+    var ser=t.series||t.id;t.series=ser;t.spawned=true;
+    // Moved back and forth: an open occurrence of the series already exists.
+    if(state.tasks.some(function(x){return x!==t&&x.series===ser&&!x.archived&&!isDone(x)}))return;
+    var dt=nextDates(t),n={id:uid('t_'),ref:'T-'+String(state.meta.nextNum++).padStart(3,'0'),title:t.title,desc:t.desc,projectId:t.projectId,stageId:open.id,
+      priority:t.priority,assignee:t.assignee,start:dt.start,due:dt.due,color:t.color,blocked:false,order:nextOrder(open.id),
+      createdAt:new Date().toISOString(),doneAt:'',repeat:clone(t.repeat),series:ser};
+    state.tasks.push(n);made.push(n);
+  });
+  return made;
+}
 function refNum(t){return parseInt(String(t.ref).replace(/\D/g,''),10)||0}
 function normalize(raw){
   var s=normBoardMeta(raw);
@@ -841,7 +898,12 @@ function visible(t){
 function canon(x){return Array.isArray(x)?'['+x.map(canon).join(',')+']':x&&typeof x==='object'?'{'+Object.keys(x).sort().map(function(k){return JSON.stringify(k)+':'+canon(x[k])}).join(',')+'}':JSON.stringify(x===undefined?null:x)}
 function clone(x){return JSON.parse(JSON.stringify(x))}
 function setStatus(s,text){var e=$('#status');e.dataset.s=s;e.lastElementChild.textContent=text}
-function commit(){state.meta.updatedAt=new Date().toISOString();render();scheduleSave();abSchedule()}
+function commit(){
+  var made=spawnRepeats();
+  state.meta.updatedAt=new Date().toISOString();render();scheduleSave();abSchedule();
+  // Shown after any toast the caller raises for the same change.
+  if(made.length)setTimeout(function(){toast(made.length===1?'Repeats: '+made[0].ref+' added for the next occurrence, due '+fmtShort(made[0].due)+'.':made.length+' repeating tasks added for their next occurrence.',5000)},0);
+}
 function scheduleSave(){
   if(readOnly){setStatus('readonly','View only, not saved');return}
   setStatus('saving','Saving');
@@ -1318,7 +1380,8 @@ async function boardInfo(id){
     else if(storage==='local'){var raw=await localRead(id),d=raw?JSON.parse(raw):null;m=d&&d.meta;o.tasks=d&&Array.isArray(d.tasks)?d.tasks.filter(function(t){return t&&!t.archived}).length:0}
     else{var snap=await refsFor(id).meta.get();m=snap.exists?snap.data():null}
     if(m){o.edited=typeof m.updatedAt==='string'?m.updatedAt:'';o.last=m.lastBackupAt?Date.parse(m.lastBackupAt)||0:0}
-    if(id===curBoard)o.auto=ab.handle?ab.state:'';
+    if(id===curBoard)o.auto=ab.dir||ab.handle?ab.state:'';
+    else if(ab.dir)o.auto=ui.abPaused['*']?'paused':ab.state==='error'?'error':'on';
     else if(ab.supported){
       try{ab.db=ab.db||idb||await idbOpen()}catch(e){}
       var h=null;try{if(ab.db)h=await idbTx('readonly',function(st){return st.get(abKeyFor(id))},ab.db)}catch(e){}
@@ -1494,7 +1557,7 @@ function dueInfo(t){
 function cardHtml(t){
   var p=projectOf(projKey(t)),di=dueInfo(t),pr=PRIORITIES.find(function(x){return x.key===t.priority}),done=isDone(t);
   return '<article class="card'+(done?' is-done':'')+'" draggable="'+(readOnly?'false':'true')+'" tabindex="0" data-id="'+esc(t.id)+'" style="--pc:'+esc(cardColor(t))+'" aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight">'
-    +'<div class="card-top"><span class="ref">'+esc(t.ref)+'</span>'+(p?'<span class="chip" style="--pc:'+esc(p.color)+'"><i></i><span>'+esc(p.name)+'</span></span>':'')
+    +'<div class="card-top"><span class="ref">'+esc(t.ref)+'</span>'+(t.repeat?'<i class="ph ph-arrows-clockwise rep" title="'+esc(repeatLabel(t.repeat))+'" aria-label="'+esc(repeatLabel(t.repeat))+'"></i>':'')+(p?'<span class="chip" style="--pc:'+esc(p.color)+'"><i></i><span>'+esc(p.name)+'</span></span>':'')
     +(done&&!readOnly?'<button class="arch" type="button" data-act="archive" data-id="'+esc(t.id)+'" title="Archive: take it off the board but keep it" aria-label="Archive '+esc(t.ref)+'">'+ICON.box+'</button>':'')+'</div>'
     +'<h4>'+esc(t.title)+'</h4>'
     +'<div class="card-meta">'
@@ -1803,6 +1866,29 @@ function parseHex(v){v=String(v||'').trim();if(v&&v[0]!=='#')v='#'+v;if(/^#[0-9a
 /* ---------- task dialog ---------- */
 var IS_MAC=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent||'');
 function stageLoad(stageId,taskId){return state.tasks.filter(function(t){return !t.archived&&t.id!==taskId&&stageKey(t)===stageId}).length+1}
+var REPEAT_PRESETS=[['1:day','Every day'],['1:week','Every week'],['2:week','Every 2 weeks'],['1:month','Every month'],['3:month','Every 3 months']];
+function repeatFieldHtml(rp){
+  var key=rp?rp.every+':'+rp.unit:'',preset=!rp||REPEAT_PRESETS.some(function(x){return x[0]===key});
+  return '<div class="fld"><label for="f-rep" class="lab">Repeats</label><select id="f-rep"><option value="">Does not repeat</option>'
+    +REPEAT_PRESETS.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===key?' selected':'')+'>'+x[1]+'</option>'}).join('')
+    +'<option value="custom"'+(preset?'':' selected')+'>Custom…</option></select>'
+    +'<span class="rep-custom" id="f-rep-custom"'+(preset?' hidden':'')+'>Every <input id="f-rep-n" type="number" min="1" max="365" value="'+(rp?rp.every:2)+'" aria-label="Repeat interval">'
+    +'<select id="f-rep-u" aria-label="Repeat unit">'+['day','week','month'].map(function(u){return '<option value="'+u+'"'+(rp&&rp.unit===u?' selected':'')+'>'+u+'s</option>'}).join('')+'</select></span>'
+    +'<span class="rep-note">When it is moved to a done stage, the next one is added.</span></div>';
+}
+// Every finished occurrence of a repeating task, newest first, with whether it was done by its due date.
+function historyHtml(t){
+  var all=seriesOf(t);if(!t.repeat&&all.length<2)return '';
+  var done=all.filter(function(x){return x.doneAt}).sort(function(a,b){return (b.doneAt||'').localeCompare(a.doneAt||'')});
+  var onTime=done.filter(function(x){return x.due&&doneDay(x)<=x.due}).length,dated=done.filter(function(x){return x.due}).length;
+  var head='<div class="hist-head">'+ic('arrows-clockwise')+'<b>History</b><span class="mono">'+(done.length?done.length+' done'+(dated?' · '+onTime+' of '+dated+' on time':''):'No occurrence finished yet')+'</span></div>';
+  if(!done.length)return '<div class="hist">'+head+'</div>';
+  var row=function(x){var d=doneDay(x),late=x.due&&d>x.due,lag=late?toDay(d)-toDay(x.due):0;
+    return '<tr><td class="mono">'+esc(x.ref)+'</td><td class="mono">'+(x.due?'due '+esc(fmtShort(x.due)):'no due date')+'</td><td class="mono">done '+esc(fmtShort(d))+'</td>'
+      +'<td>'+(x.due?'<span class="badge '+(late?'late':'ok')+'">'+(late?lag+'d late':'On time')+'</span>':'')+'</td></tr>'};
+  return '<div class="hist">'+head+'<table class="table hist-t"><tbody>'+done.slice(0,8).map(row).join('')+'</tbody></table>'
+    +(done.length>8?'<p class="hint dim" style="margin:6px 0 0">'+(done.length-8)+' earlier occurrence'+(done.length-8===1?'':'s')+' not shown. The Excel export lists them all.</p>':'')+'</div>';
+}
 function openTask(id,preset){
   var ex=id?state.tasks.find(function(x){return x.id===id}):null;
   if(id&&!ex)return;
@@ -1818,6 +1904,7 @@ function openTask(id,preset){
       +'<label class="fld"><span>Notes</span><textarea id="f-desc" rows="6" placeholder="Protocol, reagents, lot numbers, links">'+esc(d.desc)+'</textarea></label>'
       +(readOnly?'':'<div class="kb-hint">'+ic('info')+(IS_MAC?'⌘':'Ctrl')+' + Enter saves. Esc closes; unsaved edits ask first.</div>')
       +'<p class="form-err" id="f-err" role="alert" hidden></p>'
+      +(ex?historyHtml(ex):'')
     +'</div><div class="task-side">'
       +'<label class="fld"><span>Stage</span><select id="f-stage">'+stOpts+'</select></label>'
       +'<label class="fld"><span>Project</span><span class="wrapx has-lead"><i class="lead pdot-l" id="f-pdot" style="--pc:'+esc(projColor(projectOf(d.projectId)?d.projectId:''))+'"></i><select id="f-project">'+opt('','No project',!projectOf(d.projectId))+state.projects.map(function(p){return opt(p.id,p.name,p.id===d.projectId)}).join('')+'</select></span></label>'
@@ -1825,6 +1912,7 @@ function openTask(id,preset){
       +'<label class="fld"><span>Assignee</span><span class="wrapx has-av"><span class="lead av" id="f-av"'+(d.assignee?'':' hidden')+'>'+esc(initials(d.assignee))+'</span><input id="f-assignee" type="text" list="people" maxlength="60" value="'+esc(d.assignee)+'" placeholder="Unassigned"></span><datalist id="people">'+people().map(function(n){return '<option value="'+esc(n)+'">'}).join('')+'</datalist></label>'
       +'<div class="two"><label class="fld"><span>Start</span><input id="f-start" type="date" min="'+MIN_DATE+'" max="'+MAX_DATE+'" value="'+esc(d.start)+'"></label>'
       +'<label class="fld"><span>Due</span><input id="f-due" type="date" min="'+MIN_DATE+'" max="'+MAX_DATE+'" value="'+esc(d.due)+'"></label></div>'
+      +repeatFieldHtml(d.repeat)
       +'<label class="switch" title="Waiting on a reagent, instrument time or an approval"><input id="f-blocked" type="checkbox"'+(d.blocked?' checked':'')+'><span class="trk"></span>Blocked</label>'
       +'<div class="ccolor" id="f-ccolor"></div>'
       +'<div class="task-cp" id="task-cp" hidden><div class="cpanel" data-cp="task"><div class="cpanel-l">'
@@ -1857,6 +1945,7 @@ function openTask(id,preset){
         if(e.key==='Enter'&&e.target.tagName==='INPUT'&&e.target.type!=='checkbox'&&e.target.type!=='radio'&&e.target.type!=='color'){e.preventDefault();save()}
       });
       $('#f-stage').addEventListener('change',paintStage);
+      $('#f-rep').addEventListener('change',function(e){$('#f-rep-custom').hidden=e.target.value!=='custom'});
       // The "project color" default follows the project chosen in the form.
       $('#f-project').addEventListener('change',function(){$('#f-pdot').style.setProperty('--pc',projDef());paintColor()});
       $('#f-assignee').addEventListener('input',function(e){var v=initials(cleanName(e.target.value)),av=$('#f-av');av.textContent=v;av.hidden=!v});
@@ -1881,9 +1970,12 @@ function openTask(id,preset){
     if(due&&start&&due<start)return err('The deadline is before the start date.');
     // A board that changed underneath the dialog (shared editing) may have lost the chosen stage or project.
     var stageId=stageOf($('#f-stage').value)?$('#f-stage').value:state.stages[0].id,projectId=projectOf($('#f-project').value)?$('#f-project').value:'';
-    var pri=($('input[name=f-pri]:checked')||{}).value||'medium';
+    var pri=($('input[name=f-pri]:checked')||{}).value||'medium',rv=$('#f-rep').value,rep=null;
+    if(rv==='custom'){rep=normRepeat({every:$('#f-rep-n').value,unit:$('#f-rep-u').value});if(!rep)return err('Repeat every 1 to 365 days, weeks or months.')}
+    else if(rv){var rr=rv.split(':');rep={every:+rr[0],unit:rr[1]}}
     var vals={title:title,desc:$('#f-desc').value.trim(),projectId:projectId,stageId:stageId,priority:pri,assignee:canonPerson($('#f-assignee').value),start:start||fromDay(TODAY),due:due,blocked:$('#f-blocked').checked,color:color};
     rememberColor(color);
+    vals.repeat=rep;
     var t=ex&&state.tasks.find(function(x){return x.id===ex.id});
     if(ex&&!t){
       // Deleted by someone else while this dialog was open: keep the user's work as a restored task.
@@ -1893,8 +1985,10 @@ function openTask(id,preset){
     if(t){
       var moved=stageKey(t)!==vals.stageId;
       Object.assign(t,vals);delete t.sample;if(moved)t.order=nextOrder(vals.stageId);syncDone(t);
+      if(!t.repeat)delete t.repeat;else if(!isDone(t))delete t.spawned;
     }else{
       var n=Object.assign({id:uid('t_'),ref:'T-'+String(state.meta.nextNum++).padStart(3,'0'),createdAt:new Date().toISOString(),doneAt:'',order:nextOrder(vals.stageId)},vals);
+      if(!n.repeat)delete n.repeat;
       state.tasks.push(n);syncDone(n);
     }
     commit();closeModal();return true;
@@ -2067,18 +2161,19 @@ function openProjects(){
 /* ---------- backup dialog ---------- */
 function backupJson(){return JSON.stringify(state,null,2)}
 function csvText(){
-  var cols=['ref','title','project','stage','priority','assignee','start','due','blocked','created','completed','archived','color','notes'];
+  var cols=['ref','title','project','stage','priority','assignee','start','due','blocked','repeats','created','completed','archived','color','notes'];
   // Cells starting with = + - @ tab or CR run as formulas in Excel and Sheets; a leading ' keeps them as text.
   var q=function(v){v=String(v==null?'':v);if(/^[=+\-@\t\r]/.test(v))v="'"+v;return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   var rows=state.tasks.slice().sort(byOrder).map(function(t){var p=projectOf(projKey(t)),s=stageOf(stageKey(t));
-    return [t.ref,t.title,p?p.name:'',s.name,t.priority,t.assignee,t.start,t.due,t.blocked?'yes':'no',t.createdAt,t.doneAt,t.archivedAt||'',cardColor(t),t.desc].map(q).join(',')});
+    return [t.ref,t.title,p?p.name:'',s.name,t.priority,t.assignee,t.start,t.due,t.blocked?'yes':'no',repeatLabel(t.repeat),t.createdAt,t.doneAt,t.archivedAt||'',cardColor(t),t.desc].map(q).join(',')});
   return '﻿'+cols.join(',')+'\r\n'+rows.join('\r\n')+'\r\n';
 }
+function fileType(name){var x=(name.match(/\.(\w+)$/)||[])[1];return {csv:'text/csv',html:'text/html',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}[x]||'application/json'}
 async function saveFile(name,data){
   var dl=null;try{dl=await window.claude.use('downloads')}catch(e){dl=null}
   if(!dl){
     // Opened as a plain file: use an ordinary browser download.
-    try{var type=/\.csv$/.test(name)?'text/csv':'application/json',url=URL.createObjectURL(new Blob([data],{type:type})),a=document.createElement('a');
+    try{var url=URL.createObjectURL(new Blob([data],{type:fileType(name)})),a=document.createElement('a');
       a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},4000);return 'ok'}
     catch(e){return 'unavailable'}
   }
@@ -2139,6 +2234,7 @@ function openBackup(){
       var msg=$('#b-msg');
       function say(t,c){msg.className='msg '+(c||'');msg.textContent=t;msg.hidden=false}
       function showText(){var d=$('#b-det');$('#b-text').value=backupJson();d.hidden=false;return $('#b-text')}
+      if(name==='ab-all'){btn.disabled=true;var na=await abWriteAll();btn.disabled=false;toast(na+' board'+(na===1?'':'s')+' written to the backup folder.',4000);var sa=$('#ab-sec');if(sa)sa.innerHTML=abSectionHtml();return}
       if(name==='ab-choose'||name==='ab-resume'||name==='ab-off'||name==='ab-pause'){
         if(name==='ab-choose')await abChoose();else if(name==='ab-resume')await abResume();else if(name==='ab-pause')abPause();else await abOff();
         var sec=$('#ab-sec');if(sec)sec.innerHTML=abSectionHtml();return;
@@ -2173,19 +2269,278 @@ function openBackup(){
     }});
 }
 
+/* ---------- exports: Excel workbook and shareable report ---------- */
+// Status of a task for exports and reports.
+function longDate(){return new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+function statusOf(t){return t.archived?'Archived':isDone(t)?'Done':isLate(t)?'Overdue':t.blocked?'Blocked':'Open'}
+function priLabel(k){var p=PRIORITIES.find(function(x){return x.key===k});return p?p.label:k}
+// Projects in board order, plus "No project" when some task has none.
+function exportProjects(tasks){
+  var l=state.projects.slice();
+  if(tasks.some(function(t){return !projKey(t)}))l.push({id:'',name:'No project',color:NO_PROJ});
+  return l;
+}
+function stageIndex(t){return state.stages.findIndex(function(s){return s.id===stageKey(t)})}
+function byStageDue(a,b){return stageIndex(a)-stageIndex(b)||(a.due||'9999').localeCompare(b.due||'9999')||a.ref.localeCompare(b.ref)}
+function projStats(list){
+  var live=list.filter(function(t){return !t.archived}),done=live.filter(isDone).length;
+  var dated=live.filter(function(t){return t.due});
+  var next=live.filter(function(t){return t.due&&!isDone(t)&&toDay(t.due)>=TODAY}).sort(function(a,b){return a.due.localeCompare(b.due)})[0];
+  return {tasks:live.length,done:done,open:live.length-done,late:live.filter(isLate).length,blocked:live.filter(function(t){return t.blocked&&!isDone(t)}).length,
+    soon:live.filter(dueSoon).length,pct:live.length?done/live.length:0,
+    start:dated.length?fromDay(Math.min.apply(null,dated.map(tlStart))):'',end:dated.length?fromDay(Math.max.apply(null,dated.map(function(t){return toDay(t.due)}))):'',next:next||null};
+}
+
+/* A minimal .xlsx writer: SpreadsheetML parts in an uncompressed zip. Inline strings, real dates and
+   percentages, a styled header row, frozen headers and filters. No library, so the board stays one file. */
+var CRC_T=null;
+function crc32(u){
+  if(!CRC_T){CRC_T=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;CRC_T[n]=c>>>0}}
+  var x=0xFFFFFFFF;for(var i=0;i<u.length;i++)x=CRC_T[(x^u[i])&255]^(x>>>8);return (x^0xFFFFFFFF)>>>0;
+}
+function zipStore(files){
+  var enc=new TextEncoder(),chunks=[],cent=[],off=0;
+  files.forEach(function(f){
+    var nm=enc.encode(f.name),d=typeof f.data==='string'?enc.encode(f.data):f.data,crc=crc32(d);
+    var h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);h.setUint16(10,0,true);h.setUint16(12,0x21,true);
+    h.setUint32(14,crc,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,nm.length,true);h.setUint16(28,0,true);
+    var c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,0,true);c.setUint16(12,0,true);c.setUint16(14,0x21,true);
+    c.setUint32(16,crc,true);c.setUint32(20,d.length,true);c.setUint32(24,d.length,true);c.setUint16(28,nm.length,true);c.setUint32(42,off,true);
+    chunks.push(new Uint8Array(h.buffer),nm,d);cent.push(new Uint8Array(c.buffer),nm);
+    off+=30+nm.length+d.length;
+  });
+  var csize=cent.reduce(function(a,b){return a+b.length},0),e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,csize,true);e.setUint32(16,off,true);
+  var all=chunks.concat(cent,[new Uint8Array(e.buffer)]),out=new Uint8Array(off+csize+22),p=0;
+  all.forEach(function(a){out.set(a,p);p+=a.length});
+  return out;
+}
+function xmlEsc(s){return String(s==null?'':s).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function colName(i){var s='';i++;while(i>0){var m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s}
+// Style ids (see XL_STYLES): 1 header, 2 date, 3 percent, 4 title, 5 wrapped text, 6 muted, 7 bold, 8 bold percent.
+var XS={head:1,date:2,pct:3,title:4,wrap:5,muted:6,bold:7,boldPct:8};
+var XL_STYLES='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+  +'<numFmts count="1"><numFmt numFmtId="164" formatCode="mmm d, yyyy"/></numFmts>'
+  +'<fonts count="5"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="15"/><name val="Calibri"/></font>'
+  +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><sz val="10"/><color rgb="FF5F6377"/><name val="Calibri"/></font></fonts>'
+  +'<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF423A6A"/><bgColor indexed="64"/></patternFill></fill></fills>'
+  +'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top style="thin"><color rgb="FF9397AB"/></top><bottom/><diagonal/></border></borders>'
+  +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+  +'<cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+  +'<xf numFmtId="0" fontId="3" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center"/></xf>'
+  +'<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"><alignment horizontal="left"/></xf>'
+  +'<xf numFmtId="9" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+  +'<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+  +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>'
+  +'<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+  +'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>'
+  +'<xf numFmtId="9" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyNumberFormat="1"/></cellXfs>'
+  +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+// A cell is a plain value, or {v, s} with a style id; ISO dates (yyyy-mm-dd) become real Excel dates.
+function xlCell(ref,c){
+  if(c==null||c==='')return '';
+  var v=c,st=0;if(typeof c==='object'){v=c.v;st=c.s||0}
+  if(v==null||v==='')return st?'<c r="'+ref+'" s="'+st+'"/>':'';
+  if(typeof v==='number'&&isFinite(v))return '<c r="'+ref+'"'+(st?' s="'+st+'"':'')+'><v>'+v+'</v></c>';
+  if(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&validDate(v))return '<c r="'+ref+'" s="'+(st||XS.date)+'"><v>'+(toDay(v)+25569)+'</v></c>';
+  return '<c r="'+ref+'" t="inlineStr"'+(st?' s="'+st+'"':'')+'><is><t xml:space="preserve">'+xmlEsc(clip(v,32000))+'</t></is></c>';
+}
+function sheetXml(sh){
+  var rows=sh.rows.map(function(r,i){return '<row r="'+(i+1)+'"'+(sh.headRow===i?' ht="20" customHeight="1"':'')+'>'+r.map(function(c,j){return xlCell(colName(j)+(i+1),c)}).join('')+'</row>'}).join('');
+  var fr=sh.freeze||0,ncol=sh.cols.length;
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    +'<sheetViews><sheetView workbookViewId="0"'+(sh.first?' tabSelected="1"':'')+'>'+(fr?'<pane ySplit="'+fr+'" topLeftCell="A'+(fr+1)+'" activePane="bottomLeft" state="frozen"/>':'')+'</sheetView></sheetViews>'
+    +'<sheetFormatPr defaultRowHeight="15"/><cols>'+sh.cols.map(function(w,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>'}).join('')+'</cols>'
+    +'<sheetData>'+rows+'</sheetData>'
+    +(sh.filter!=null&&sh.rows.length>sh.filter+1?'<autoFilter ref="A'+(sh.filter+1)+':'+colName(ncol-1)+sh.rows.length+'"/>':'')
+    +'</worksheet>';
+}
+function workbookBytes(sheets){
+  var ws='http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet';
+  var files=[
+    {name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+      +sheets.map(function(s,i){return '<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'}).join('')+'</Types>'},
+    {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+    {name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+      +sheets.map(function(s,i){return '<sheet name="'+xmlEsc(s.name)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>'}).join('')+'</sheets></workbook>'},
+    {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +sheets.map(function(s,i){return '<Relationship Id="rId'+(i+1)+'" Type="'+ws+'" Target="worksheets/sheet'+(i+1)+'.xml"/>'}).join('')
+      +'<Relationship Id="rId'+(sheets.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+    {name:'xl/styles.xml',data:XL_STYLES}
+  ].concat(sheets.map(function(s,i){return {name:'xl/worksheets/sheet'+(i+1)+'.xml',data:sheetXml(s)}}));
+  return zipStore(files);
+}
+// Sheet names: at most 31 characters, none of []:*?/\ and unique (Excel compares them case-insensitively).
+function sheetName(n,used){
+  var b=cleanName(String(n).replace(/[\[\]:*?\/\\]/g,' ')).replace(/^'+|'+$/g,'').slice(0,31)||'Sheet',x=b,i=2;
+  while(used[x.toLowerCase()]||x.toLowerCase()==='history'){var suf=' ('+i+++')';x=b.slice(0,31-suf.length)+suf}
+  used[x.toLowerCase()]=1;return x;
+}
+function boardWorkbook(){
+  var title=state.meta.title||'Lab Task Board',tasks=state.tasks,projs=exportProjects(tasks),used={},H=function(l){return l.map(function(x){return {v:x,s:XS.head}})};
+  var byP=function(pid){return tasks.filter(function(t){return projKey(t)===pid})};
+  var all=projStats(tasks);
+  // Summary
+  var sum=[[{v:title,s:XS.title}],[{v:'Exported '+longDate()+' · '+all.tasks+' tasks on the board · '+state.projects.length+' projects',s:XS.muted}],[],
+    H(['Project','Tasks','Done','Open','Overdue','Blocked','% done','First date','Last deadline','Next deadline','Next task'])];
+  projs.forEach(function(p){var st=projStats(byP(p.id));
+    sum.push([p.name,st.tasks,st.done,st.open,st.late,st.blocked,{v:st.pct,s:XS.pct},st.start,st.end,st.next?st.next.due:'',st.next?st.next.ref+' '+st.next.title:''])});
+  sum.push([{v:'All projects',s:XS.bold},{v:all.tasks,s:XS.bold},{v:all.done,s:XS.bold},{v:all.open,s:XS.bold},{v:all.late,s:XS.bold},{v:all.blocked,s:XS.bold},{v:all.pct,s:XS.boldPct},{v:'',s:XS.bold},{v:'',s:XS.bold},{v:'',s:XS.bold},{v:'',s:XS.bold}]);
+  sum.push([],[{v:'By stage',s:XS.bold}],H(['Stage','Tasks','WIP limit','Counts as done']));
+  state.stages.forEach(function(s){sum.push([s.name,tasks.filter(function(t){return !t.archived&&stageKey(t)===s.id}).length,s.wip||'',s.done?'Yes':'No'])});
+  var sheets=[{name:sheetName('Summary',used),cols:[34,8,8,8,10,10,9,13,14,14,44],rows:sum,freeze:4,headRow:3,first:true}];
+  // Task tables
+  var cols=['Ref','Task','Project','Stage','Status','Priority','Assignee','Start','Due','Done on','Blocked','Repeats','Notes'],widths=[9,46,28,14,10,10,16,13,13,13,9,16,60];
+  var row=function(t,withProj){var p=projectOf(projKey(t)),r=[t.ref,t.title];if(withProj)r.push(p?p.name:'No project');
+    return r.concat([stageOf(stageKey(t)).name,statusOf(t),priLabel(t.priority),t.assignee,t.start,t.due,doneDay(t),t.blocked?'Yes':'',repeatLabel(t.repeat),{v:t.desc,s:XS.wrap}])};
+  var sorted=tasks.slice().sort(function(a,b){var pa=projs.findIndex(function(p){return p.id===projKey(a)}),pb=projs.findIndex(function(p){return p.id===projKey(b)});return pa-pb||byStageDue(a,b)});
+  sheets.push({name:sheetName('All tasks',used),cols:widths,rows:[H(cols)].concat(sorted.map(function(t){return row(t,true)})),freeze:1,filter:0,headRow:0});
+  var pc=cols.filter(function(c){return c!=='Project'}),pw=widths.filter(function(w,i){return i!==2});
+  projs.forEach(function(p){
+    var list=byP(p.id).sort(byStageDue);
+    sheets.push({name:sheetName(p.name,used),cols:pw,rows:[H(pc)].concat(list.map(function(t){return row(t,false)})),freeze:1,filter:0,headRow:0});
+  });
+  // Every occurrence of every repeating task, so a routine's record over time can be charted or filtered.
+  var series={};tasks.forEach(function(t){if(t.repeat||t.series){var k=t.series||t.id;(series[k]||(series[k]=[])).push(t)}});
+  var keys=Object.keys(series);
+  if(keys.length){
+    var rr=[H(['Repeating task','Repeats','Ref','Due','Done on','Result','Days late','Assignee'])];
+    keys.forEach(function(k){
+      var occ=series[k].slice().sort(function(a,b){return (a.due||'').localeCompare(b.due||'')}),cur=occ.slice().reverse().find(function(t){return t.repeat})||occ[occ.length-1];
+      occ.forEach(function(t){var d=doneDay(t),late=d&&t.due?toDay(d)-toDay(t.due):null;
+        rr.push([cur.title,repeatLabel(cur.repeat),t.ref,t.due,d,!d?(isLate(t)?'Overdue':'Open'):t.due?(late>0?'Late':'On time'):'Done',late!=null&&late>0?late:'',t.assignee])});
+    });
+    sheets.push({name:sheetName('Repeating tasks',used),cols:[40,16,9,13,13,10,10,16],rows:rr,freeze:1,filter:0,headRow:0});
+  }
+  return workbookBytes(sheets);
+}
+
+/* Shareable report: one self-contained HTML file (no scripts) in a light, print-ready layout.
+   Anyone can open it in a browser; Print → Save as PDF turns it into a PDF. */
+function reportHtml(o){
+  o=o||{};
+  var title=state.meta.title||'Lab Task Board',live=state.tasks.filter(function(t){return !t.archived});
+  var projs=exportProjects(live).filter(function(p){return !o.scope||p.id===o.scope});
+  var scopeName=o.scope!=null&&o.scope!==''?(projs[0]||{}).name:'';
+  var inScope=live.filter(function(t){return projs.some(function(p){return p.id===projKey(t)})});
+  var st=projStats(inScope),today=fromDay(TODAY),fd=function(s){return s?esc(fmtShort(s)):'—'};
+  var badge=function(t){var s=statusOf(t),c={Done:'ok',Overdue:'late',Blocked:'late',Open:''}[s];
+    if(s==='Open'&&dueSoon(t))return '<span class="b soon">Due '+fd(t.due)+'</span>';return '<span class="b '+c+'">'+s+'</span>'};
+  var kpi=function(n,l,c){return '<div class="k'+(c?' '+c:'')+'"><b>'+n+'</b><span>'+l+'</span></div>'};
+  var bar=function(p){return '<span class="bar"><i style="width:'+Math.round(p*100)+'%"></i></span>'};
+  var h='<header><p class="eyebrow">'+(scopeName?'Project report':'Board overview')+' · '+esc(longDate())+'</p>'
+    +'<h1>'+esc(scopeName||title)+'</h1>'+(scopeName?'<p class="sub">From the board “'+esc(title)+'”</p>':'')+'</header>'
+    +'<section class="kpis">'+kpi(st.tasks,'tasks')+kpi(Math.round(st.pct*100)+'%','done ('+st.done+')','ok')+kpi(st.late,'overdue',st.late?'late':'')+kpi(st.blocked,'blocked',st.blocked?'late':'')+kpi(st.soon,'due in 7 days',st.soon?'soon':'')+'</section>';
+  if(!scopeName&&projs.length>1){
+    h+='<section><h2>Projects at a glance</h2><table class="t glance"><thead><tr><th>Project</th><th>Progress</th><th class="n">Done</th><th class="n">Overdue</th><th>Next deadline</th><th>Span</th></tr></thead><tbody>'
+      +projs.map(function(p){var s=projStats(inScope.filter(function(t){return projKey(t)===p.id}));
+        return '<tr style="--pc:'+esc(p.color)+'"><td><i class="dot"></i>'+esc(p.name)+'</td><td>'+bar(s.pct)+' <span class="m">'+Math.round(s.pct*100)+'%</span></td><td class="n m">'+s.done+'/'+s.tasks+'</td>'
+          +'<td class="n m'+(s.late?' red':'')+'">'+s.late+'</td><td class="m">'+(s.next?fd(s.next.due)+' · '+esc(s.next.title):'—')+'</td><td class="m">'+(s.start?fd(s.start)+' – '+fd(s.end):'—')+'</td></tr>'}).join('')
+      +'</tbody></table></section>';
+  }
+  projs.forEach(function(p){
+    var list=inScope.filter(function(t){return projKey(t)===p.id}).sort(byStageDue),s=projStats(list);
+    var shown=o.done===false?list.filter(function(t){return !isDone(t)}):list;
+    h+='<section class="proj" style="--pc:'+esc(p.color)+'"><div class="ph"><h2><i class="sq"></i>'+esc(p.name)+'</h2><span class="m">'+s.tasks+' tasks · '+s.done+' done'+(s.late?' · <span class="red">'+s.late+' overdue</span>':'')+'</span>'+bar(s.pct)+'<span class="m">'+Math.round(s.pct*100)+'%</span></div>';
+    var dated=shown.filter(function(t){return t.due}).sort(function(x,y){return tlStart(x)-tlStart(y)||toDay(x.due)-toDay(y.due)});
+    if(o.timeline!==false&&dated.length){
+      var a=Math.min(TODAY,Math.min.apply(null,dated.map(tlStart)))-2,z=Math.max(TODAY,Math.max.apply(null,dated.map(function(t){return toDay(t.due)})))+3,span=z-a+1;
+      if(span>400){a=Math.max(a,TODAY-120);z=a+399;span=400}
+      var pct=function(n){return ((Math.max(a,Math.min(z+1,n))-a)/span*100).toFixed(2)};
+      var ticks='';for(var d=a;d<=z;d++){var dt=new Date(d*DAY);if(dt.getUTCDate()===1||(d===a&&dt.getUTCDate()<24))ticks+='<span style="left:'+pct(d)+'%">'+MONTHS[dt.getUTCMonth()]+'</span>'}
+      h+='<div class="gantt"><div class="ax">'+ticks+'<em style="left:'+pct(TODAY+.5)+'%">Today</em></div><div class="rows"><div class="ov"><span></span><span class="ovp"><i class="today" style="left:'+pct(TODAY+.5)+'%"></i></span></div>'
+        +dated.map(function(t){var l=tlStart(t),r=toDay(t.due)+1;return '<div class="gr"><span class="gl">'+esc(t.title)+'</span><span class="gp"><b class="'+(isDone(t)?'done':isLate(t)?'late':'')+'" style="left:'+pct(l)+'%;width:calc('+(pct(r)-pct(l)).toFixed(2)+'% + 2px)"></b></span></div>'}).join('')
+        +'</div></div>';
+    }
+    h+=shown.length?'<table class="t"><thead><tr><th>Ref</th><th>Task</th><th>Stage</th><th>Assignee</th><th>Due</th><th>Status</th></tr></thead><tbody>'
+      +shown.map(function(t){return '<tr><td class="m">'+esc(t.ref)+'</td><td><span class="tt">'+esc(t.title)+'</span>'+(t.repeat?' <span class="rep">↻ '+esc(repeatLabel(t.repeat).toLowerCase())+'</span>':'')
+        +(o.notes&&t.desc?'<div class="note">'+esc(t.desc)+'</div>':'')+'</td><td>'+esc(stageOf(stageKey(t)).name)+'</td><td>'+esc(t.assignee||'—')+'</td><td class="m">'+fd(t.due)+'</td><td>'+badge(t)+'</td></tr>'}).join('')+'</tbody></table>'
+      :'<p class="empty">'+(list.length?'All tasks in this project are done.':'No tasks in this project yet.')+'</p>';
+    h+='</section>';
+  });
+  if(!projs.length)h+='<p class="empty">Nothing to report yet.</p>';
+  var css='*{box-sizing:border-box}body{margin:0;background:#eef0f6;color:#1d1f2c;font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'main{max-width:1000px;margin:0 auto;padding:40px 32px 56px}header{margin-bottom:22px}.eyebrow{margin:0 0 6px;font:500 12px "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.04em;text-transform:uppercase;color:#5d5294}'
+    +'h1{margin:0;font-size:30px;font-weight:600;letter-spacing:-.02em}.sub{margin:4px 0 0;color:#5f6377}h2{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}'
+    +'section{background:#fbfbfe;border-radius:12px;box-shadow:0 0 0 1px rgba(29,31,44,.1);padding:18px 20px;margin:0 0 16px;break-inside:avoid}section>h2{margin-bottom:12px}'
+    +'.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;background:none;box-shadow:none;padding:0}.k{background:#fbfbfe;border-radius:12px;box-shadow:0 0 0 1px rgba(29,31,44,.1);padding:14px 16px;display:flex;flex-direction:column}'
+    +'.k b{font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.1}.k span{font-size:12.5px;color:#5f6377}.k.ok b{color:#1d7a4a}.k.late b{color:#b3263a}.k.soon b{color:#8a5a00}'
+    +'.m{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;color:#5f6377}.red{color:#b3263a!important}.n{text-align:right}'
+    +'.glance td:nth-child(2),.glance td:nth-child(1){white-space:nowrap}'
+    +'.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--pc);margin-right:8px;vertical-align:1px}.sq{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--pc)}'
+    +'.bar{display:inline-block;width:110px;height:6px;border-radius:99px;background:#e4e7f2;overflow:hidden;vertical-align:middle}.bar i{display:block;height:100%;background:var(--pc,#5d5294)}'
+    +'.ph{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(29,31,44,.1)}'
+    +'.t{width:100%;border-collapse:collapse;font-size:13px}.t th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#5f6377;padding:6px 8px;border-bottom:1px solid rgba(29,31,44,.16)}'
+    +'.t td{padding:7px 8px;border-bottom:1px solid rgba(29,31,44,.07);vertical-align:top}.t tr:last-child td{border-bottom:0}.tt{font-weight:500}.rep{font-size:11.5px;color:#5d5294;white-space:nowrap}'
+    +'.note{margin-top:3px;font-size:12px;color:#5f6377;white-space:pre-wrap}.b{display:inline-block;font:500 11px "IBM Plex Mono",ui-monospace,monospace;padding:1px 7px;border-radius:4px;border:1px solid rgba(29,31,44,.14);color:#5f6377;white-space:nowrap}'
+    +'.b.ok{color:#1d7a4a;border-color:rgba(29,122,74,.4)}.b.late{color:#b3263a;border-color:rgba(179,38,58,.45)}.b.soon{color:#8a5a00;border-color:rgba(138,90,0,.45)}'
+    +'.gantt{margin:0 0 14px}.ax{position:relative;height:20px;margin-left:34%;border-bottom:1px solid rgba(29,31,44,.12)}.ax span,.ax em{position:absolute;top:2px;font:11px "IBM Plex Mono",ui-monospace,monospace;color:#5f6377;padding-left:4px;white-space:nowrap}'
+    +'.ax em{font-style:normal;font-weight:500;color:#fff;background:#5d5294;padding:0 5px;border-radius:3px;transform:translateX(-50%);top:1px}.rows{position:relative}'
+    +'.ov{position:absolute;inset:0;display:grid;grid-template-columns:34% 1fr;pointer-events:none}.ovp{position:relative}.today{position:absolute;top:0;bottom:0;width:2px;background:#5d5294;transform:translateX(-1px);opacity:.7;z-index:1}'
+    +'.gr{display:grid;grid-template-columns:34% 1fr;align-items:center;height:24px}.gl{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:10px}'
+    +'.gp{position:relative;height:100%}.gp b{position:absolute;top:6px;height:12px;min-width:6px;border-radius:4px;background:var(--pc)}.gp b.done{background:repeating-linear-gradient(135deg,var(--pc) 0 4px,rgba(255,255,255,.55) 4px 8px)}.gp b.late{box-shadow:0 0 0 2px #b3263a}'
+    +'.empty{color:#5f6377;margin:0}footer{margin-top:24px;font-size:12px;color:#5f6377}'
+    +'@media (max-width:700px){main{padding:24px 16px}.kpis{grid-template-columns:repeat(2,1fr)}.glance td:nth-child(6),.glance th:nth-child(6){display:none}}'
+    +'@page{margin:14mm}@media print{body{background:#fff}main{padding:0;max-width:none}section,.k{box-shadow:0 0 0 1px rgba(29,31,44,.18)}tr{break-inside:avoid}}';
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc((scopeName||title)+' · report')+'</title>'
+    +'<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">'
+    +'<style>'+css+'</style></head><body><main>'+h+'<footer>Generated from Lab Task Board on '+esc(new Date().toLocaleString())+'. Archived cards are not included'+(o.done===false?', nor finished tasks':'')+'.</footer></main></body></html>';
+}
+
+function openExport(){
+  var opts=function(){return {scope:$('#rp-scope').value,done:$('#rp-done').checked,notes:$('#rp-notes').checked,timeline:$('#rp-tl').checked}};
+  var name=function(o){var p=o.scope!==''?exportProjects(state.tasks).find(function(x){return x.id===o.scope}):null;return slug(p?p.name:state.meta.title)+'-report-'+isoLocal(new Date())+'.html'};
+  var scope='<option value="">Whole board</option>'+exportProjects(state.tasks.filter(function(t){return !t.archived})).map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>'}).join('');
+  var body='<div class="sec"><h3>Excel workbook</h3><p class="hint" style="margin:0">A summary sheet, every task on one sheet, one sheet per project, and the full record of repeating tasks. Dates are real Excel dates and every table has filters.</p>'
+    +'<div class="row-btns"><button class="btn primary" type="button" data-m="x-xlsx">'+ic('microsoft-excel-logo')+'Download Excel (.xlsx)</button><button class="btn" type="button" data-m="x-csv">'+ic('table')+'Export CSV</button></div><p class="msg" id="x-msg" role="status" hidden></p></div>'
+    +'<div class="sec"><h3>Shareable report</h3><p class="hint" style="margin:0">A styled overview to send to a team member: one file that opens in any browser, or print it to PDF. Notes stay out unless you include them.</p>'
+    +'<div class="rp-opts"><label class="fld"><span>Report on</span><select id="rp-scope">'+scope+'</select></label>'
+    +'<label class="chk"><input type="checkbox" id="rp-done" checked> Finished tasks</label><label class="chk"><input type="checkbox" id="rp-tl" checked> Timelines</label><label class="chk"><input type="checkbox" id="rp-notes"> Notes</label></div>'
+    +'<div class="rp-frame"><iframe id="rp-frame" title="Report preview" sandbox="allow-same-origin allow-modals"></iframe></div>'
+    +'<div class="row-btns"><button class="btn primary" type="button" data-m="x-report">'+ic('download-simple')+'Download report (.html)</button><button class="btn" type="button" data-m="x-print">'+ic('printer')+'Print or save as PDF</button></div>'
+    +'<p class="msg" id="r2-msg" role="status" hidden></p></div>';
+  function preview(){var f=$('#rp-frame');if(f)f.srcdoc=reportHtml(opts())}
+  openModal({title:'Export and share',wide:'x',noFocus:true,noDirty:true,body:body,foot:'<span class="sp"></span><button class="btn" type="button" data-close>Done</button>',
+    mount:function(){preview();$$('#rp-scope,#rp-done,#rp-notes,#rp-tl').forEach(function(e){e.addEventListener('change',preview)})},
+    action:async function(name2){
+      var say=function(id,t,c){var m=$(id);m.className='msg '+(c||'');m.textContent=t;m.hidden=false};
+      var res=function(r,id,ok){if(r==='ok')say(id,ok,'ok');else if(r==='declined')say(id,'Download cancelled.');else say(id,'Downloads are not available in this view.','err')};
+      if(name2==='x-xlsx'){var bytes;try{bytes=boardWorkbook()}catch(e){say('#x-msg','The workbook could not be built: '+(e&&e.message||e),'err');return}
+        res(await saveFile(slug(state.meta.title)+'-'+isoLocal(new Date())+'.xlsx',bytes),'#x-msg','Excel workbook saved.');return}
+      if(name2==='x-csv'){res(await saveFile(slug(state.meta.title)+'-tasks-'+isoLocal(new Date())+'.csv',csvText()),'#x-msg','CSV saved.');return}
+      if(name2==='x-report'){var o=opts();res(await saveFile(name(o),reportHtml(o)),'#r2-msg','Report saved. Attach it to an email or a chat message; it opens in any browser.');return}
+      if(name2==='x-print'){var f=$('#rp-frame');try{f.contentWindow.focus();f.contentWindow.print()}catch(e){say('#r2-msg','Printing is blocked in this view. Download the report and print it from the browser.','err')}}
+    }});
+}
+
 /* ---------- automatic backup file ----------
    Chrome and Edge on a computer can keep writing to a file the user picked once (File System Access API).
    The board rewrites that file a moment after every change, local or from a teammate. The file handle is
    remembered in this browser; after a browser restart Chrome asks once to allow writing again, unless the
    user chose "Allow on every visit". Other browsers and embedded views cannot do this. */
-var AB_HANDLE='backupHandle', AB_TIME='labboard.autobackup.at';
-// Each board has its own backup file; the first board keeps the original keys.
+var AB_HANDLE='backupHandle', AB_TIME='labboard.autobackup.at', AB_DIR='backupDir', AB_NAMES='labboard.backup.names';
+// One backup folder for every board (preferred): each board writes its own file there. Boards set up before
+// the folder existed keep their own file handle until a folder is chosen. The first board keeps the original keys.
 function abKeyFor(id){return id===MAIN?AB_HANDLE:AB_HANDLE+':'+id}
 function abTimeKey(){return curBoard===MAIN?AB_TIME:AB_TIME+':'+curBoard}
-function abReset(){clearTimeout(ab.timer);ab.timer=null;ab.handle=null;ab.state='off';ab.userPaused=false;ab.err='';ab.lastAt=0;ab.board=null;syncAbChip()}
-var ab={supported:typeof window.showSaveFilePicker==='function'&&window.self===window.top,embedded:window.self!==window.top,
-  handle:null,state:'off',lastAt:0,timer:null,writing:false,again:false,err:'',db:null,board:null,asked:{}};
-function abName(){return ab.handle&&ab.handle.name?ab.handle.name:'the backup file'}
+function abReset(){clearTimeout(ab.timer);ab.timer=null;ab.handle=null;ab.dir=null;ab.state='off';ab.userPaused=false;ab.err='';ab.lastAt=0;ab.board=null;syncAbChip()}
+var ab={folders:typeof window.showDirectoryPicker==='function',
+  supported:(typeof window.showDirectoryPicker==='function'||typeof window.showSaveFilePicker==='function')&&window.self===window.top,embedded:window.self!==window.top,
+  handle:null,dir:null,state:'off',lastAt:0,timer:null,writing:false,again:false,err:'',db:null,board:null,asked:{}};
+// The file a board writes in the folder. Chosen once from its title and kept, so renaming a board does not
+// leave a second file behind; two boards with the same title get different names.
+function abFileName(id){
+  var m={};try{m=JSON.parse(localStorage.getItem(AB_NAMES)||'{}')||{}}catch(e){}
+  if(typeof m[id]==='string'&&/^[\w.-]+\.json$/.test(m[id]))return m[id];
+  var used={};Object.keys(m).forEach(function(k){used[m[k]]=1});
+  var n=slug(boardTitle(id))+'-backup.json';if(used[n])n=slug(boardTitle(id))+'-'+String(id).replace(/[^\w]/g,'').slice(-6)+'-backup.json';
+  m[id]=n;try{localStorage.setItem(AB_NAMES,JSON.stringify(m))}catch(e){}
+  return n;
+}
+function abPauseKey(){return ab.dir?'*':curBoard}
+function abName(){return ab.dir?(ab.dir.name||'backup folder')+'/'+abFileName(curBoard):ab.handle&&ab.handle.name?ab.handle.name:'the backup file'}
 function abTime(){return ab.lastAt?new Date(ab.lastAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):''}
 var BROWSER_REQ='<span class="browser-req">Works only in Chrome or Edge on a computer</span>';
 function syncAbChip(){
@@ -2193,7 +2548,7 @@ function syncAbChip(){
   c.hidden=!ab.supported;c.dataset.s=ab.state;
   var t={on:'Auto-backup on',paused:'Resume backup',error:'Backup failed',off:'Set up backup'}[ab.state];
   c.lastElementChild.textContent=t;
-  c.title=ab.state==='on'?'Writing to '+abName()+(ab.lastAt?', last saved '+abTime():''):ab.state==='paused'?'Click to resume writing to '+abName():ab.state==='error'?ab.err:'Click to choose a backup file location';
+  c.title=ab.state==='on'?'Writing to '+abName()+(ab.lastAt?', last saved '+abTime():''):ab.state==='paused'?'Click to resume writing to '+abName():ab.state==='error'?ab.err:'Click to choose a backup folder';
 }
 async function abInit(){
   var bid=curBoard;
@@ -2201,26 +2556,32 @@ async function abInit(){
   syncAbChip();
   if(!ab.supported){if(!ui.abNoticeSeen&&!readOnly&&$('#overlay').hidden)openAbUnsupported();return}
   try{ab.db=ab.db||idb||await idbOpen()}catch(e){ab.db=null}
-  var h=null;try{if(ab.db)h=await idbTx('readonly',function(s){return s.get(abKeyFor(bid))},ab.db)}catch(e){}
+  var dir=null,h=null;
+  try{if(ab.db&&ab.folders)dir=await idbTx('readonly',function(s){return s.get(AB_DIR)},ab.db)}catch(e){}
+  if(!dir)try{if(ab.db)h=await idbTx('readonly',function(s){return s.get(abKeyFor(bid))},ab.db)}catch(e){}
   if(bid!==curBoard)return;
-  if(h){
-    ab.handle=h;var p='prompt';try{p=await h.queryPermission({mode:'readwrite'})}catch(e){}
+  if(dir||h){
+    var hd=dir||h,key=dir?'*':bid;ab.dir=dir;ab.handle=dir?null:h;
+    var p='prompt';try{p=await hd.queryPermission({mode:'readwrite'})}catch(e){}
     if(bid!==curBoard)return;
-    if(p==='granted'&&ui.abPaused[bid]){ab.state='paused';ab.userPaused=true;syncAbChip()}
+    if(p==='granted'&&ui.abPaused[key]){ab.state='paused';ab.userPaused=true;syncAbChip()}
     else if(p==='granted'){ab.state='on';syncAbChip();abWrite()}
-    else{ab.state='paused';syncAbChip();if($('#overlay').hidden&&!readOnly&&!ab.asked[bid]){ab.asked[bid]=1;openAbReconnect()}}
+    // After a browser restart the folder needs one OK, asked once per visit (not once per board).
+    else{ab.state='paused';syncAbChip();if($('#overlay').hidden&&!readOnly&&!ab.asked[key]){ab.asked[key]=1;openAbReconnect()}}
     return;
   }
-  // Ask once per board per visit.
-  if(!ui.abDontAsk&&!readOnly&&$('#overlay').hidden&&!ab.asked[bid]){ab.asked[bid]=1;openAbSetup()}
+  // No backup yet: ask once per visit, for all boards.
+  if(!ui.abDontAsk&&!readOnly&&$('#overlay').hidden&&!ab.asked['*']){ab.asked['*']=1;openAbSetup()}
 }
 function abSchedule(ms){if(ab.state!=='on')return;clearTimeout(ab.timer);ab.timer=setTimeout(function(){ab.timer=null;abWrite()},ms==null?1500:ms)}
+async function abWriteTo(fh,json){var w=await fh.createWritable();await w.write(json);await w.close()}
 async function abWrite(){
-  if(!ab.handle||!state||!loaded)return;
+  if(!(ab.dir||ab.handle)||!state||!loaded)return;
   if(ab.writing){ab.again=true;return}
   ab.writing=true;
   try{
-    var w=await ab.handle.createWritable();await w.write(backupJson());await w.close();
+    var fh=ab.dir?await ab.dir.getFileHandle(abFileName(curBoard),{create:true}):ab.handle;
+    await abWriteTo(fh,backupJson());
     ab.lastAt=Date.now();ab.state='on';ab.err='';try{localStorage.setItem(abTimeKey(),String(ab.lastAt))}catch(e){}
   }catch(e){abFail(e)}
   ab.writing=false;syncAbChip();
@@ -2228,67 +2589,95 @@ async function abWrite(){
   $('#btn-backup').classList.toggle('stale',!last||(Date.now()-last)>7*DAY);
   if(ab.again){ab.again=false;abWrite()}
 }
+// Writes every other board into the folder too, so the folder holds a full set right after it is chosen.
+async function abWriteAll(){
+  if(!ab.dir)return 0;
+  var n=0,dir=ab.dir;
+  await abWrite();if(ab.state==='on')n++;
+  for(var i=0;i<boards.length;i++){
+    var id=boards[i].id;if(id===curBoard)continue;
+    try{var st=await readBoardState(id);if(!st)continue;await abWriteTo(await dir.getFileHandle(abFileName(id),{create:true}),JSON.stringify(st,null,2));n++;
+      try{localStorage.setItem(id===MAIN?AB_TIME:AB_TIME+':'+id,String(Date.now()))}catch(e){}}
+    catch(e){}
+  }
+  return n;
+}
 function abFail(e){
-  var n=e&&e.name;
+  var n=e&&e.name,what=ab.dir?'backup folder':'backup file';
   ab.state=n==='NotAllowedError'||n==='SecurityError'?'paused':'error';
-  ab.err=n==='NotFoundError'?'The backup file was moved or deleted. Choose a location again.'
+  ab.err=n==='NotFoundError'?'The '+what+' was moved or deleted. Choose '+(ab.dir?'a folder':'a location')+' again.'
     :n==='NotAllowedError'||n==='SecurityError'?'The browser needs permission again to write '+abName()+'.'
-    :n==='NoModificationAllowedError'||n==='InvalidStateError'?'The backup file is locked or read-only. Choose another location.'
-    :'Could not write the backup file'+(e&&e.message?': '+e.message:'.');
+    :n==='NoModificationAllowedError'||n==='InvalidStateError'?'The '+what+' is locked or read-only. Choose another location.'
+    :'Could not write the '+what+(e&&e.message?': '+e.message:'.');
   syncAbChip();
   if(ab.state==='error')toast(ab.err,7000);
 }
-// Must run from a click: browsers only open the save dialog in response to a user action.
+// Must run from a click: browsers only open the folder (or save) dialog in response to a user action.
 async function abChoose(){
-  var h;
   var bid=curBoard;
-  try{h=await window.showSaveFilePicker({suggestedName:slug(boardTitle(bid))+'-backup.json',types:[{description:'Lab board backup',accept:{'application/json':['.json']}}]})}
+  if(!ab.folders){
+    var h;
+    try{h=await window.showSaveFilePicker({suggestedName:slug(boardTitle(bid))+'-backup.json',types:[{description:'Lab board backup',accept:{'application/json':['.json']}}]})}
+    catch(e){if(e&&e.name==='AbortError')return false;abFail(e);return false}
+    if(bid!==curBoard)return false;
+    ab.handle=h;ab.dir=null;ab.state='on';ab.userPaused=false;delete ui.abPaused[bid];ui.abDontAsk=false;savePrefs();
+    try{if(ab.db)await idbTx('readwrite',function(s){return s.put(h,abKeyFor(bid))},ab.db)}catch(e){}
+    await abWrite();
+    if(ab.state==='on')toast('Automatic backup on. Saving to '+abName()+' after every change.',5000);
+    return ab.state==='on';
+  }
+  var d;
+  try{d=await window.showDirectoryPicker({id:'lab-board-backups',mode:'readwrite'})}
   catch(e){if(e&&e.name==='AbortError')return false;abFail(e);return false}
   if(bid!==curBoard)return false;
-  ab.handle=h;ab.state='on';ab.userPaused=false;delete ui.abPaused[bid];ui.abDontAsk=false;savePrefs();
-  try{if(ab.db)await idbTx('readwrite',function(s){return s.put(h,abKeyFor(bid))},ab.db)}catch(e){}
-  await abWrite();
-  if(ab.state==='on')toast('Automatic backup on. Saving to '+abName()+' after every change.',5000);
+  ab.dir=d;ab.handle=null;ab.state='on';ab.userPaused=false;delete ui.abPaused['*'];ui.abDontAsk=false;savePrefs();
+  try{if(ab.db)await idbTx('readwrite',function(s){return s.put(d,AB_DIR)},ab.db)}catch(e){}
+  var n=await abWriteAll();
+  if(ab.state==='on')toast('Automatic backup on. '+(n>1?n+' boards':'This board')+' saved to the folder “'+(d.name||'backup')+'”, each to its own file, after every change.',6000);
   return ab.state==='on';
 }
-// Pausing keeps the file; nothing is written until Resume, which writes the current board at once.
+// Pausing keeps the folder; nothing is written until Resume, which writes the current board at once.
 function abPause(){
-  if(!ab.handle)return;
-  clearTimeout(ab.timer);ab.timer=null;ab.state='paused';ab.userPaused=true;ui.abPaused[curBoard]=true;savePrefs();syncAbChip();
+  if(!ab.dir&&!ab.handle)return;
+  clearTimeout(ab.timer);ab.timer=null;ab.state='paused';ab.userPaused=true;ui.abPaused[abPauseKey()]=true;savePrefs();syncAbChip();
   toast('Automatic backup paused.',3000);
 }
 async function abResume(){
-  if(!ab.handle)return abChoose();
-  if(ab.userPaused){ab.userPaused=false;delete ui.abPaused[curBoard];savePrefs()}
-  try{var p=await ab.handle.requestPermission({mode:'readwrite'});if(p==='granted'){ab.state='on';await abWrite();if(ab.state==='on')toast('Automatic backup resumed.');return ab.state==='on'}}
+  if(!ab.dir&&!ab.handle)return abChoose();
+  if(ab.userPaused){ab.userPaused=false;delete ui.abPaused[abPauseKey()];savePrefs()}
+  try{var p=await (ab.dir||ab.handle).requestPermission({mode:'readwrite'});if(p==='granted'){ab.state='on';await abWrite();if(ab.state==='on')toast('Automatic backup resumed.');return ab.state==='on'}}
   catch(e){abFail(e)}
   return false;
 }
 async function abOff(){
-  clearTimeout(ab.timer);ab.handle=null;ab.state='off';ab.err='';ab.userPaused=false;delete ui.abPaused[curBoard];savePrefs();
-  try{if(ab.db)await idbTx('readwrite',function(s){return s.delete(abKeyFor(curBoard))},ab.db)}catch(e){}
-  syncAbChip();toast('Automatic backup turned off. The existing file was left in place.',4000);
+  var wasDir=!!ab.dir;
+  clearTimeout(ab.timer);ab.handle=null;ab.dir=null;ab.state='off';ab.err='';ab.userPaused=false;delete ui.abPaused[curBoard];delete ui.abPaused['*'];savePrefs();
+  try{if(ab.db)await idbTx('readwrite',function(s){return s.delete(wasDir?AB_DIR:abKeyFor(curBoard))},ab.db)}catch(e){}
+  syncAbChip();toast('Automatic backup turned off'+(wasDir?' for all boards':'')+'. The existing '+(wasDir?'files were':'file was')+' left in place.',4000);
 }
 function abSectionHtml(){
   var card=function(st,icon,title,sub,btns,prose){return '<div class="ab-card" data-s="'+st+'"><span class="ab-ic">'+ic(icon)+'</span><div class="ab-txt"><b>'+title+'</b><small'+(prose?' class="prose"':'')+'>'+sub+'</small></div>'+(btns?'<div class="ab-btns">'+btns+'</div>':'')+'</div>'};
   var b=function(m,label,cls){return '<button class="btn sm'+(cls?' '+cls:'')+'" type="button" data-m="'+m+'">'+label+'</button>'};
   if(!ab.supported)return card('unsupported','hard-drives','Not available here',(ab.embedded?'It does not work inside an embedded view. Open the board\'s .html file directly in Chrome or Edge to use it.':'This browser cannot write to a file automatically.')+' Download a backup below regularly instead; the dot on the Backup button reminds you after 7 days.','',true)
     +'<p class="hint dim" style="margin:0">'+BROWSER_REQ+'</p>';
-  var file='<span class="mono">'+esc(abName())+'</span>',last=ab.lastAt?'Last write '+(Math.floor(ab.lastAt/DAY)===Math.floor(Date.now()/DAY)?'today ':fmtShort(isoLocal(new Date(ab.lastAt)))+' ')+esc(abTime()):'Not written yet';
-  var off=b('ab-off','Turn off','ghost'),chg=b('ab-choose','Change file');
-  var html=ab.state==='on'?card('on','hard-drives','On · writing to '+file,last+' · after every change',b('ab-pause','Pause')+chg+off)
-    :ab.state==='paused'?card('paused','pause-circle','Paused · '+file,ab.userPaused?'Changes are not being written. Resume to write the current board.':'The browser needs your OK to write to this file again.',b('ab-resume','Resume','primary')+chg+off,!0)
-    :ab.state==='error'?card('error','warning-circle','Backup failed',esc(ab.err),b('ab-choose','Choose file…','primary')+(ab.handle?off:''),true)
-    :card('off','hard-drives','Off','Choose a file and the board keeps a .json copy there, updated after every change.',b('ab-choose','Choose file…','primary'),true);
-  return html+'<p class="hint dim" style="margin:0">Pick a folder that syncs to the cloud (Dropbox, OneDrive, Google Drive, iCloud Drive) so the copy survives losing this computer. '+BROWSER_REQ+'</p>';
+  var dir=!!ab.dir,where=dir?'<span class="mono">'+esc((ab.dir.name||'backup')+'/')+'</span>':'<span class="mono">'+esc(abName())+'</span>';
+  var last=ab.lastAt?'Last write '+(Math.floor(ab.lastAt/DAY)===Math.floor(Date.now()/DAY)?'today ':fmtShort(isoLocal(new Date(ab.lastAt)))+' ')+esc(abTime()):'Not written yet';
+  var mine=dir?'This board: '+esc(abFileName(curBoard))+' · ':'';
+  var off=b('ab-off','Turn off','ghost'),chg=b('ab-choose',dir?'Change folder':ab.folders?'Use one folder for all boards':'Change file');
+  var html=ab.state==='on'?card('on','hard-drives','On · '+(dir?'every board writes to '+where:'writing to '+where),mine+last+' · after every change',b('ab-pause','Pause')+(dir?b('ab-all','Write all boards now'):'')+chg+off)
+    :ab.state==='paused'?card('paused','pause-circle','Paused · '+where,ab.userPaused?'Changes are not being written. Resume to write the current board.':'The browser needs your OK to write to this '+(dir?'folder':'file')+' again.',b('ab-resume','Resume','primary')+chg+off,!0)
+    :ab.state==='error'?card('error','warning-circle','Backup failed',esc(ab.err),b('ab-choose',ab.folders?'Choose folder…':'Choose file…','primary')+(dir||ab.handle?off:''),true)
+    :card('off','hard-drives','Off',ab.folders?'Choose a folder once. Every board keeps its own .json file there, updated after every change.':'Choose a file and the board keeps a .json copy there, updated after every change.',b('ab-choose',ab.folders?'Choose folder…':'Choose file…','primary'),true);
+  return html+'<p class="hint dim" style="margin:0">Pick a folder that syncs to the cloud (Dropbox, OneDrive, Google Drive, iCloud Drive) so the copies survive losing this computer. '+BROWSER_REQ+'</p>';
 }
 function openAbSetup(){
   openModal({title:'Set up automatic backup',noDirty:true,noFocus:true,
     body:'<p class="ab-note" style="margin-bottom:10px">'+BROWSER_REQ+'</p>'
-      +'<p>Keep a copy of '+(boards.length>1?'the board <strong>“'+esc(boardTitle(curBoard))+'”</strong>':'this board')+' in a file on your computer. Choose where to save it and the board writes <strong>'+esc(slug(boardTitle(curBoard)))+'-backup.json</strong> there a moment after every change, so restarts, cleared browser data or a new computer cannot wipe out your work.</p>'
-      +'<p class="hint">Good choice: a folder that syncs to the cloud (Dropbox, OneDrive, Google Drive, iCloud Drive). After the browser restarts, Chrome or Edge asks once to allow writing to the file again; pick <strong>Allow on every visit</strong> if offered to skip that.</p>'
+      +(ab.folders?'<p>Keep a copy of '+(boards.length>1?'all '+boards.length+' boards':'this board')+' in one folder on your computer. Choose the folder once: every board, including ones you add later, writes its own file there (for this one, <strong>'+esc(abFileName(curBoard))+'</strong>) a moment after every change, so restarts, cleared browser data or a new computer cannot wipe out your work.</p>'
+        :'<p>Keep a copy of this board in a file on your computer. Choose where to save it and the board writes <strong>'+esc(slug(boardTitle(curBoard)))+'-backup.json</strong> there a moment after every change.</p>')
+      +'<p class="hint">Good choice: a folder that syncs to the cloud (Dropbox, OneDrive, Google Drive, iCloud Drive). After the browser restarts, Chrome or Edge asks once to allow writing to the '+(ab.folders?'folder':'file')+' again; pick <strong>Allow on every visit</strong> if offered to skip that.</p>'
       +'<label class="chk"><input type="checkbox" id="ab-dont"> Don\'t ask again when I open the board</label>',
-    foot:'<span class="sp"></span><button class="btn ghost" type="button" data-m="ab-later">Not now</button><button class="btn primary" type="button" data-m="ab-choose">Choose location…</button>',
+    foot:'<span class="sp"></span><button class="btn ghost" type="button" data-m="ab-later">Not now</button><button class="btn primary" type="button" data-m="ab-choose">'+(ab.folders?'Choose folder…':'Choose location…')+'</button>',
     action:async function(name){
       if(name==='ab-later'){ui.abDontAsk=$('#ab-dont').checked;savePrefs();closeModal();if(ui.abDontAsk)toast('You can turn it on any time under Backup.',4000);return}
       if(name==='ab-choose'){if(await abChoose())closeModal()}
@@ -2296,7 +2685,7 @@ function openAbSetup(){
 }
 function openAbReconnect(){
   openModal({title:'Resume automatic backup?',noFocus:true,
-    body:'<p>This board backs up to <strong>'+esc(abName())+'</strong>. After a browser restart, the browser needs your OK before the board can write to that file again.</p><p class="hint">'+BROWSER_REQ+'</p>',
+    body:'<p>'+(ab.dir?'Your boards back up to the folder <strong>'+esc(ab.dir.name||'backup')+'</strong>. After a browser restart, the browser needs your OK once before the boards can write there again.':'This board backs up to <strong>'+esc(abName())+'</strong>. After a browser restart, the browser needs your OK before the board can write to that file again.')+'</p><p class="hint">'+BROWSER_REQ+'</p>',
     foot:'<button class="btn ghost" type="button" data-m="ab-off">Turn off</button><span class="sp"></span><button class="btn ghost" type="button" data-close>Not now</button><button class="btn primary" type="button" data-m="ab-resume">Resume backup</button>',
     action:async function(name){
       if(name==='ab-resume'){if(await abResume())closeModal();return}
@@ -2522,6 +2911,7 @@ $('#btn-new').addEventListener('click',whenReady(function(){openTask(null)}));
 $('#btn-projects').addEventListener('click',whenReady(openProjects));
 $('#btn-stages').addEventListener('click',whenReady(openStages));
 $('#btn-backup').addEventListener('click',whenReady(openBackup));
+$('#btn-export').addEventListener('click',whenReady(openExport));
 $('#btn-archive').addEventListener('click',whenReady(openArchive));
 $('#ab-chip').addEventListener('click',whenReady(function(){if(ab.state==='paused')abResume().then(syncAbChip);else openBackup()}));
 document.addEventListener('visibilitychange',function(){if(document.hidden&&ab.timer){clearTimeout(ab.timer);ab.timer=null;abWrite()}});

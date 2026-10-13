@@ -7,13 +7,15 @@ const http = require('http'), fs = require('fs'), path = require('path');
 const log = (o) => console.log(JSON.stringify(o));
 const BOARD = path.resolve(process.env.LAB_BOARD || path.join(__dirname, '../lab-board.html'));
 
-const PICKER = `window.showSaveFilePicker=async function(o){
+// The board backs up every board into one folder; the test hands it the origin-private file system root.
+const PICKER = `window.showDirectoryPicker=async function(o){
   window.__pickerOpts=o;
   if(window.__pickCancel)throw new DOMException('The user aborted a request.','AbortError');
-  var d=await navigator.storage.getDirectory();return d.getFileHandle('lab-board-backup.json',{create:true});
+  return navigator.storage.getDirectory();
 };`;
+// The current board's file in the backup folder (the first board's file is named after its first title).
 const readFile = (p) => p.evaluate(async () => {
-  try { const d = await navigator.storage.getDirectory(); const h = await d.getFileHandle('lab-board-backup.json'); const t = await (await h.getFile()).text(); const j = JSON.parse(t); return { tasks: j.tasks.length, title: j.meta.title }; }
+  try { const d = await navigator.storage.getDirectory(); const h = await d.getFileHandle('lab-task-board-backup.json'); const t = await (await h.getFile()).text(); const j = JSON.parse(t); return { tasks: j.tasks.length, title: j.meta.title }; }
   catch (e) { return { missing: e.name } }
 });
 const chip = (p) => p.$eval('#ab-chip', (c) => c.hidden ? 'hidden' : c.dataset.s + ' | ' + c.textContent.trim());
@@ -37,7 +39,7 @@ const dialog = (p) => p.$eval('#overlay', (o) => o.hidden ? null : document.getE
     const { ctx, page } = await ctxWith([PICKER]); await go(page);
     const asked = await dialog(page), browserNote = await page.textContent('#modal-body .browser-req').catch(() => null);
     await page.click('[data-m=ab-choose]'); await page.waitForTimeout(400);
-    const afterChoose = { dialog: await dialog(page), chip: await chip(page), file: await readFile(page), suggested: await page.evaluate(() => window.__pickerOpts.suggestedName) };
+    const afterChoose = { dialog: await dialog(page), chip: await chip(page), file: await readFile(page), pickerMode: await page.evaluate(() => window.__pickerOpts.mode) };
     await page.click('[data-act=load-sample]'); await page.waitForTimeout(2000);
     const afterSample = await readFile(page);
     await page.click('#title-btn'); await page.fill('#title-in', 'Rivera Lab'); await page.keyboard.press('Enter'); await page.waitForTimeout(2000);
@@ -68,7 +70,7 @@ const dialog = (p) => p.$eval('#overlay', (o) => o.hidden ? null : document.getE
     const askedAgain = await dialog(page);
     await page.click('#btn-backup');
     const section = await page.textContent('#ab-sec');
-    log({ test: 'ab:dontAskAgain', askedAgain, chip: await chip(page), backupDialogOffers: /Choose location/.test(section) && /Chrome or Edge/.test(section), errors: page._errors });
+    log({ test: 'ab:dontAskAgain', askedAgain, chip: await chip(page), backupDialogOffers: /Choose folder/.test(section) && /Chrome or Edge/.test(section), errors: page._errors });
     await ctx.close();
   }
   // D. Cancelling the save dialog changes nothing.
@@ -91,7 +93,7 @@ const dialog = (p) => p.$eval('#overlay', (o) => o.hidden ? null : document.getE
   }
   // F. Browsers without the API (Firefox, Safari, phones): a one-time notice naming Chrome or Edge.
   {
-    const { ctx, page } = await ctxWith(['window.showSaveFilePicker=undefined']); await go(page);
+    const { ctx, page } = await ctxWith(['window.showSaveFilePicker=undefined;window.showDirectoryPicker=undefined']); await go(page);
     const notice = await dialog(page), body = await page.textContent('#modal-body');
     await page.click('[data-m=ab-ok]'); await go(page);
     const again = await dialog(page);
