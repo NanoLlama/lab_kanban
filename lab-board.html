@@ -227,6 +227,15 @@ body.col-resizing,body.col-resizing *{cursor:col-resize!important;-webkit-user-s
 .lane-head{position:sticky;left:0;z-index:2;background:var(--surface);border-top:1px solid var(--line);padding:10px 10px 10px 12px;display:flex;align-items:flex-start;gap:6px;min-width:0}
 .lane-head .nm{font-weight:500;display:flex;align-items:center;gap:7px;min-width:0;overflow-wrap:anywhere;font-size:13.5px}
 .lane-head .count{font:12px var(--f-mono);color:var(--muted);margin-left:auto}
+.lane-grip{border:0;background:none;color:var(--muted);cursor:grab;padding:3px 0 0;margin-left:-6px;display:inline-flex;opacity:0;transition:opacity .12s}
+.lane-grip .ph{font-size:13px}
+.lane-head:hover .lane-grip,.lane-grip:focus-visible{opacity:1}
+.lane-grip:hover{color:var(--fg)}
+@media (hover:none){.lane-grip{opacity:.7}}
+.lane-dragging{opacity:.45}
+.lane-head.lane-drop-before,.cell.lane-drop-before{box-shadow:inset 0 2px 0 var(--accent)}
+.lane-head.lane-drop-after,.cell.lane-drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
+#lane-reset{margin-left:-4px}
 .lane-head .tg{border:0;background:none;color:var(--muted);cursor:pointer;padding:3px 2px 0;display:inline-flex;transition:transform .15s}
 .lane-head .tg .ph{font-size:12px}
 .lane-head.collapsed .tg{transform:rotate(-90deg)}
@@ -660,6 +669,7 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
         <option value="none">None</option>
       </select>
     </label>
+    <button class="icon-btn sm grp" id="lane-reset" type="button" hidden title="Reset lane order: show the lanes in their usual order again" aria-label="Reset lane order"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
     <div class="mgmt">
       <button class="btn edit-only" id="btn-projects" type="button"><i class="ph ph-folders" aria-hidden="true"></i>Projects</button>
       <button class="btn edit-only" id="btn-stages" type="button"><i class="ph ph-columns" aria-hidden="true"></i>Stages</button>
@@ -786,16 +796,17 @@ var ui=loadPrefs();
 function loadPrefs(){
   var d={view:'board',groupBy:'priority',zoom:'months',collapsed:{},expanded:{},colW:{},byBoard:{},open:[],active:'main',abPaused:{},f:noFilters()};
   try{var r=JSON.parse(localStorage.getItem(PREF_KEY)||'null'); if(r){d.view=r.view==='timeline'?'timeline':'board'; d.groupBy=r.groupBy||d.groupBy;if(ZOOMS[r.zoom])d.zoom=r.zoom;if(isObj(r.abPaused))d.abPaused=r.abPaused;d.abDontAsk=!!r.abDontAsk;d.abNoticeSeen=!!r.abNoticeSeen;
-    // Column widths and collapsed lanes are kept per board; older prefs belong to the first board.
+    // Column widths, collapsed lanes and lane order are kept per board; older prefs belong to the first board.
     var bb=isObj(r.byBoard)?r.byBoard:{main:{colW:r.colW,collapsed:r.collapsed}};
     Object.keys(bb).forEach(function(id){var x=isObj(bb[id])?bb[id]:{},cw={};
       if(isObj(x.colW))Object.keys(x.colW).forEach(function(k){var w=+x.colW[k];if(w>=LANE_MIN&&w<=COL_MAX)cw[k]=Math.round(w)});
-      d.byBoard[id]={colW:cw,collapsed:isObj(x.collapsed)?x.collapsed:{}}});
+      var lo={};if(isObj(x.laneOrder))['priority','project','assignee'].forEach(function(g){var a=x.laneOrder[g];if(Array.isArray(a))lo[g]=a.filter(function(k){return typeof k==='string'}).slice(0,500)});
+      d.byBoard[id]={colW:cw,collapsed:isObj(x.collapsed)?x.collapsed:{},laneOrder:lo}});
     if(Array.isArray(r.open))d.open=r.open.filter(function(x){return typeof x==='string'});
     if(typeof r.active==='string')d.active=r.active;}}catch(e){}
   return d;
 }
-function useBoardPrefs(id){var b=ui.byBoard[id]||(ui.byBoard[id]={colW:{},collapsed:{}});ui.colW=b.colW;ui.collapsed=b.collapsed}
+function useBoardPrefs(id){var b=ui.byBoard[id]||(ui.byBoard[id]={colW:{},collapsed:{},laneOrder:{}});if(!b.laneOrder)b.laneOrder={};ui.colW=b.colW;ui.collapsed=b.collapsed;ui.laneOrder=b.laneOrder}
 function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify({view:ui.view,groupBy:ui.groupBy,zoom:ui.zoom,abPaused:ui.abPaused,byBoard:ui.byBoard,open:ui.open,active:curBoard,abDontAsk:!!ui.abDontAsk,abNoticeSeen:!!ui.abNoticeSeen}))}catch(e){}}
 
 function defaultState(){
@@ -1544,6 +1555,7 @@ function syncChrome(){
   $$('#tl-zoom [data-zoom]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.zoom===ui.zoom))});
   $('#view').classList.toggle('edge-cards',state.meta.cardStyle==='edge');
   $('#grp').value=ui.groupBy;
+  var lo=ui.laneOrder&&ui.laneOrder[ui.groupBy];$('#lane-reset').hidden=!(lo&&lo.length);
   var fp=$('#flt-project'),cur=ui.f.project;
   fp.innerHTML='<option value="">All projects</option>'+state.projects.map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>'}).join('');
   if(!projectOf(cur))cur='';ui.f.project=cur;fp.value=cur;
@@ -1572,7 +1584,8 @@ function syncChrome(){
 var CELL_CAP=40, TL_CAP=150;
 function cssEsc(s){return window.CSS&&CSS.escape?CSS.escape(s):String(s).replace(/["\\]/g,'\\$&')}
 function laneKey(t){var g=ui.groupBy;return g==='priority'?t.priority:g==='project'?projKey(t):g==='assignee'?(t.assignee||''):'*'}
-function getLanes(){
+function getLanes(){return orderLanes(naturalLanes())}
+function naturalLanes(){
   var g=ui.groupBy;
   if(g==='priority')return PRIORITIES.map(function(p){return {key:p.key,label:p.label,pri:p}});
   if(g==='project'){
@@ -1582,6 +1595,20 @@ function getLanes(){
   }
   if(g==='assignee'){return people().map(function(n){return {key:n,label:n}}).concat([{key:'',label:'Unassigned'}])}
   return [{key:'*',label:'All tasks'}];
+}
+/* Swimlane order is a personal view setting, kept per board and per grouping. It changes only the order
+   lanes are shown in: moving the High lane above Critical does not change any task's priority.
+   Lanes the saved order does not know yet (a new project or person) follow, in their usual order. */
+function orderLanes(l){
+  var saved=ui.laneOrder&&ui.laneOrder[ui.groupBy];if(!saved||!saved.length)return l;
+  var at=Object.create(null);saved.forEach(function(k,i){if(!(k in at))at[k]=i});
+  return l.map(function(L,i){return {L:L,o:L.key in at?at[L.key]:saved.length+i}}).sort(function(a,b){return a.o-b.o}).map(function(x){return x.L});
+}
+function moveLane(key,to){
+  var keys=getLanes().map(function(L){return L.key}),from=keys.indexOf(key);
+  if(from<0||to<0||to>=keys.length||to===from)return false;
+  keys.splice(from,1);keys.splice(to,0,key);
+  ui.laneOrder[ui.groupBy]=keys;savePrefs();render();return true;
 }
 function dueInfo(t){
   if(isDone(t)){var dd=t.doneAt&&!isNaN(Date.parse(t.doneAt))?isoLocal(new Date(t.doneAt)):t.due;return dd?{cls:'ok',txt:'Done '+fmtShort(dd)}:null}
@@ -1661,7 +1688,8 @@ function renderBoard(){
   parts.push(['x:nomatch','<div class="nomatch" data-k="x:nomatch"'+(none?'':' hidden')+'>'+ic('funnel-simple')+'No tasks match these filters ·<button type="button" data-act="clear-filters">Clear filters</button></div>']);
   lanes.forEach(function(L){
     var ck=g+':'+L.key,col=!!ui.collapsed[ck];
-    parts.push(['l:'+L.key,'<div class="lane-head'+(col?' collapsed':'')+'" data-k="'+esc('l:'+L.key)+'"'+(L.color?' style="--pc:'+esc(L.color)+'"':'')+'>'
+    parts.push(['l:'+L.key,'<div class="lane-head'+(col?' collapsed':'')+'" data-k="'+esc('l:'+L.key)+'" data-lane="'+esc(L.key)+'"'+(L.color?' style="--pc:'+esc(L.color)+'"':'')+'>'
+      +(lanes.length>1?'<button class="lane-grip" type="button" draggable="true" data-lane="'+esc(L.key)+'" aria-label="Move the '+esc(L.label)+' lane. Drag it, or press the up or down arrow key." title="Drag to reorder lanes">'+ic('dots-six-vertical')+'</button>':'')
       +'<button class="tg" type="button" data-act="toggle-lane" data-key="'+esc(ck)+'" aria-expanded="'+(!col)+'" aria-label="Collapse or expand '+esc(L.label)+'">'+ICON.chev+'</button>'
       +'<span class="nm">'+(L.color?'<i class="pdot"></i>':'')+(L.pri?'<span class="pri '+L.pri.key+'">'+esc(L.label)+'</span>':esc(L.label))+'</span><span class="count">'+(laneN[L.key]||0)+'</span></div>']);
     stages.forEach(function(s){
@@ -3264,6 +3292,7 @@ $$('#theme [data-theme-opt]').forEach(function(b){b.addEventListener('click',fun
 })});
 syncTheme();
 $('#grp').addEventListener('change',function(e){ui.groupBy=e.target.value;savePrefs();render()});
+$('#lane-reset').addEventListener('click',function(){delete ui.laneOrder[ui.groupBy];savePrefs();render();toast('Lanes are back in their usual order.')});
 $('#flt-project').addEventListener('change',function(e){ui.f.project=e.target.value;render()});
 $('#flt-assignee').addEventListener('change',function(e){ui.f.assignee=e.target.value;render()});
 // Debounced on large boards: a keystroke rebuilds every cell that the filter changes.
@@ -3281,14 +3310,35 @@ view.addEventListener('scroll',function(e){
 },true);
 // The timeline's zoom is relative to the window width.
 var rsT=null;window.addEventListener('resize',function(){clearTimeout(rsT);rsT=setTimeout(function(){if(state&&loaded&&ui.view==='timeline'&&$('#overlay').hidden)render()},200)});
+/* lane drag: grab a lane's grip and drop it above or below another lane */
+var laneDrag=null;
+function laneMark(key,after){
+  $$('#view .lane-drop-before,#view .lane-drop-after').forEach(function(x){x.classList.remove('lane-drop-before','lane-drop-after')});
+  if(key==null)return;
+  var sel='[data-lane="'+cssEsc(key)+'"]';$$('#view .lane-head'+sel+',#view .cell'+sel).forEach(function(x){x.classList.add(after?'lane-drop-after':'lane-drop-before')});
+}
+function laneTarget(e){
+  var el=e.target.closest&&e.target.closest('#view .lane-head,#view .cell');if(!el||el.dataset.lane==null)return null;
+  var key=el.dataset.lane,head=$('#view .lane-head[data-lane="'+cssEsc(key)+'"]');if(!head)return null;
+  var row=head.getBoundingClientRect(),cells=$$('#view .cell[data-lane="'+cssEsc(key)+'"]'),bottom=row.bottom;
+  cells.forEach(function(c){bottom=Math.max(bottom,c.getBoundingClientRect().bottom)});
+  return {key:key,after:e.clientY>(row.top+bottom)/2};
+}
 view.addEventListener('dragstart',function(e){
+  var g=e.target.closest&&e.target.closest('.lane-grip');
+  if(g){laneDrag=g.dataset.lane;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain','lane:'+laneDrag)}catch(x){}
+    var sel='[data-lane="'+cssEsc(laneDrag)+'"]';setTimeout(function(){$$('#view .lane-head'+sel+',#view .cell'+sel).forEach(function(x){x.classList.add('lane-dragging')})},0);return}
   var c=e.target.closest&&e.target.closest('.card');
   // Touch is handled by the long-press code below; some mobile browsers also start a native drag.
   if(!c||readOnly||touch){e.preventDefault();return}
   dragId=c.dataset.id;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',dragId)}catch(x){}
   setTimeout(function(){c.classList.add('dragging')},0);
 });
+// Near the top or bottom of the window a drag scrolls the page, so far lanes and cells can be reached.
+function dragEdgeScroll(y){var edge=60;if(y<edge)window.scrollBy(0,-Math.ceil((edge-y)/3));else if(y>window.innerHeight-edge)window.scrollBy(0,Math.ceil((y-window.innerHeight+edge)/3))}
 view.addEventListener('dragover',function(e){
+  if(laneDrag!=null||dragId)dragEdgeScroll(e.clientY);
+  if(laneDrag!=null){var t=laneTarget(e);if(!t)return;e.preventDefault();e.dataTransfer.dropEffect='move';laneMark(t.key===laneDrag?null:t.key,t.after);return}
   if(!dragId)return;var cell=e.target.closest('.cell');if(!cell)return;
   e.preventDefault();e.dataTransfer.dropEffect='move';overCell(cell,e.clientY);
 });
@@ -3297,10 +3347,13 @@ view.addEventListener('dragleave',function(e){
   if(cell&&!cell.contains(e.relatedTarget)){cell.classList.remove('over');if(dropLine&&dropLine.parentNode===cell)cell.removeChild(dropLine)}
 });
 view.addEventListener('drop',function(e){
+  if(laneDrag!=null){e.preventDefault();var t=laneTarget(e),k=laneDrag;laneDrag=null;laneMark(null);
+    if(t&&t.key!==k){var keys=getLanes().map(function(L){return L.key}).filter(function(x){return x!==k}),i=keys.indexOf(t.key)+(t.after?1:0);moveLane(k,i)}
+    else render();return}
   if(!dragId)return;var cell=e.target.closest('.cell');if(!cell)return;
   e.preventDefault();var id=dragId;dragId=null;dropOn(cell,e.clientY,id);
 });
-view.addEventListener('dragend',function(){dragId=null;clearDrop();$$('.card.dragging').forEach(function(c){c.classList.remove('dragging')});});
+view.addEventListener('dragend',function(){if(laneDrag!=null){laneDrag=null;laneMark(null);$$('#view .lane-dragging').forEach(function(x){x.classList.remove('lane-dragging')})}dragId=null;clearDrop();$$('.card.dragging').forEach(function(c){c.classList.remove('dragging')});});
 
 /* column resizing: drag a header's right edge; double-click (or Delete) resets; arrow keys nudge. */
 function colBounds(key){return key===LANE_COL?[LANE_MIN,LANE_MAX]:[COL_MIN,COL_MAX]}
@@ -3326,6 +3379,12 @@ view.addEventListener('dblclick',function(e){
   delete ui.colW[h.dataset.rz];applyCols();savePrefs();toast('Column width reset');
 });
 view.addEventListener('keydown',function(e){
+  var gr=e.target.classList&&e.target.classList.contains('lane-grip')?e.target:null;
+  if(gr&&(e.key==='ArrowUp'||e.key==='ArrowDown')){
+    e.preventDefault();var key=gr.dataset.lane,keys=getLanes().map(function(L){return L.key}),i=keys.indexOf(key);
+    if(moveLane(key,i+(e.key==='ArrowUp'?-1:1))){var ng=$('#view .lane-grip[data-lane="'+cssEsc(key)+'"]');if(ng)ng.focus();toast('Lane moved '+(e.key==='ArrowUp'?'up':'down')+'.')}
+    return;
+  }
   var h=e.target.classList&&e.target.classList.contains('col-rz')?e.target:null;if(!h)return;
   var key=h.dataset.rz,cur=ui.colW[key]||h.parentElement.getBoundingClientRect().width,step=e.shiftKey?60:20;
   if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setColW(key,cur+(e.key==='ArrowLeft'?-step:step));savePrefs()}
