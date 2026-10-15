@@ -220,6 +220,28 @@ body.col-resizing,body.col-resizing *{cursor:col-resize!important;-webkit-user-s
 .wip .meter{width:36px;height:4px;border-radius:99px;background:var(--band-2);overflow:hidden;display:inline-block}
 .wip .meter b{display:block;height:100%;background:var(--accent)}
 .wip.at .meter b{background:var(--warn)} .wip.over .meter b{background:var(--crit)}
+.wip-btn{border:0;background:none;padding:2px 4px;margin:-2px -4px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:10px;color:inherit}
+.wip-btn:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.wip-set{border:0;background:none;color:var(--muted);cursor:pointer;padding:3px;border-radius:5px;display:inline-grid;place-items:center;opacity:0;transition:opacity .12s}
+.wip-set .ph{font-size:15px}
+.stage-head:hover .wip-set,.wip-set:focus-visible{opacity:1}
+@media (hover:none){.wip-set{opacity:.7}}
+.wip-p{display:inline-flex;align-items:center;gap:3px;font:11px var(--f-mono);color:var(--muted);white-space:nowrap}
+.wip-p .ph{font-size:12px}
+.wip-p.over{color:var(--crit)}
+.cell-wip{display:flex;align-items:center;gap:5px;font:11px var(--f-mono);color:var(--muted);margin:-2px 2px 0}
+.cell-wip .ph{font-size:12px}
+.cell-wip .meter{width:36px;height:4px;border-radius:99px;background:var(--band-2);overflow:hidden;display:inline-block;margin-left:2px}
+.cell-wip .meter b{display:block;height:100%;background:var(--accent)}
+.cell-wip.at{color:var(--warn)} .cell-wip.at .meter b{background:var(--warn)}
+.cell-wip.over{color:var(--crit)} .cell-wip.over .meter b{background:var(--crit)}
+.who.over{box-shadow:0 0 0 2px var(--crit)}
+.wip-grid{display:grid;grid-template-columns:140px 1fr 160px;gap:10px 16px;align-items:end;margin-bottom:12px}
+.wip-now{font-size:12px;color:var(--muted);padding-bottom:9px}
+.wip-t input{min-height:30px!important;padding:3px 8px!important;font-family:var(--f-mono);font-size:12.5px!important;max-width:160px}
+.wip-t .wipc-at{color:var(--warn)} .wip-t .wipc-over{color:var(--crit)}
+.s-wipcell{display:flex;align-items:center;gap:6px}
+.s-wipcell .ph{color:var(--accent);font-size:14px}
 .st-arch{border:0;background:none;color:var(--muted);cursor:pointer;padding:3px;border-radius:5px;display:inline-grid;place-items:center}
 .st-arch .ph{font-size:15px}
 .st-arch:hover{background:color-mix(in srgb,var(--fg) 8%,transparent);color:var(--fg)}
@@ -830,7 +852,7 @@ function normBoardMeta(raw){
   var m=isObj(raw.meta)?raw.meta:{};
   s.meta={title:clip(m.title||s.meta.title,120),nextNum:Math.floor(Number(m.nextNum))||1,sample:!!m.sample,
     lastBackupAt:typeof m.lastBackupAt==='string'?m.lastBackupAt:'',updatedAt:typeof m.updatedAt==='string'?m.updatedAt:'',customColors:cleanColors(m.customColors),cardStyle:m.cardStyle==='edge'?'edge':'tint'};
-  s.stages=rs.map(function(x,i){var id=String(x.id||uid('st_'));while(seen[id])id=uid('st_');seen[id]=1;return {id:id,name:clip(x.name||'Stage '+(i+1),40),wip:x.wip>0?Math.min(999,Math.floor(x.wip)):null,done:!!x.done}});
+  s.stages=rs.map(function(x,i){var id=String(x.id||uid('st_'));while(seen[id])id=uid('st_');seen[id]=1;var o={id:id,name:clip(x.name||'Stage '+(i+1),40),wip:x.wip>0?Math.min(999,Math.floor(x.wip)):null,done:!!x.done};var pw=normPersonWip(x.personWip);if(pw)o.personWip=pw;return o});
   s.projects=(Array.isArray(raw.projects)?raw.projects:[]).filter(isObj).map(function(x,i){var id=String(x.id||uid('pr_'));while(pseen[id])id=uid('pr_');pseen[id]=1;var o={id:id,name:clip(x.name||'Project '+(i+1),60),color:HEX.test(x.color)?retune(x.color):PALETTE[i%PALETTE.length]};if(x.sample)o.sample=true;var pa=normAtt(x.att);if(pa)o.att=pa;return o});
   return s;
 }
@@ -855,6 +877,28 @@ function normTask(x,i,ctx){
   return t;
 }
 var LENIENT={lenient:true};
+/* ---------- work-in-progress limits ----------
+   A stage can have a team limit (all its tasks) and personal limits: a default for everyone plus each
+   person's own number, so everyone decides what they can carry. Personal limits count a person's tasks in
+   that stage, whatever filters are on. */
+function wipNum(v){var n=Math.floor(Number(v));return n>0?Math.min(999,n):null}
+function normPersonWip(x){
+  if(!isObj(x))return null;
+  var o={def:wipNum(x.def),people:{}},n=0;
+  if(isObj(x.people))Object.keys(x.people).forEach(function(k){var nm=clip(cleanName(k),60),v=wipNum(x.people[k]);if(nm&&v&&n<300){o.people[nm]=v;n++}});
+  return o.def||n?o:null;
+}
+function personLimit(st,person){if(!st||!st.personWip||!person)return null;var p=st.personWip;return has(p.people,person)?p.people[person]:p.def}
+function hasPersonal(st){return !!(st&&st.personWip)}
+function personLoadMap(){var m=Object.create(null);state.tasks.forEach(function(t){if(t.archived||!t.assignee)return;var k=stageKey(t)+'\u0001'+t.assignee;m[k]=(m[k]||0)+1});return m}
+var pLoad=Object.create(null);
+function loadOf(stageId,person){return pLoad[stageId+'\u0001'+person]||0}
+function wipCls(n,lim){return lim?(n>lim?' over':n===lim?' at':''):''}
+// People over their own limit in a stage.
+function overPeople(st){
+  if(!hasPersonal(st))return [];
+  var out=[];people().forEach(function(n){var lim=personLimit(st,n),c=loadOf(st.id,n);if(lim&&c>lim)out.push({name:n,n:c,lim:lim})});return out;
+}
 /* ---------- repeating tasks ----------
    A repeating task carries {every, unit}. Moving it into a done stage creates the next occurrence (same
    series id, dates moved forward on the original cadence) and leaves the finished one as a record, so the
@@ -1610,6 +1654,16 @@ function moveLane(key,to){
   keys.splice(from,1);keys.splice(to,0,key);
   ui.laneOrder[ui.groupBy]=keys;savePrefs();render();return true;
 }
+// Stage header: the team meter and personal-limit summary open the limits dialog; a gauge offers one when none is set.
+function wipHeadHtml(s,n,wc){
+  if(s.done&&!s.wip&&!hasPersonal(s))return '';
+  var over=overPeople(s),h='';
+  if(hasPersonal(s))h+='<span class="wip-p'+(over.length?' over':'')+'" title="'+esc(over.length?'Over their own limit: '+over.map(function(o){return o.name+' '+o.n+'/'+o.lim}).join(', '):'Personal limits are set; nobody is over theirs')+'">'+ic('user')+(over.length?over.length+' over':'ok')+'</span>';
+  if(s.wip)h+='<span class="wip'+wc+'">WIP '+n+'/'+s.wip+'<span class="meter"><b style="width:'+Math.min(100,Math.round(n/s.wip*100))+'%"></b></span></span>';
+  var label='Work-in-progress limits for '+s.name+(s.wip?': '+n+' of '+s.wip:'');
+  return h?'<button class="wip-btn" type="button" data-act="wip" data-stage="'+esc(s.id)+'" title="'+esc(label+'. Click to change.')+'" aria-label="'+esc(label+'. Change limits')+'">'+h+'</button>'
+    :readOnly?'':'<button class="wip-set" type="button" data-act="wip" data-stage="'+esc(s.id)+'" title="Set work-in-progress limits" aria-label="Set work-in-progress limits for '+esc(s.name)+'">'+ic('gauge')+'</button>';
+}
 function dueInfo(t){
   if(isDone(t)){var dd=t.doneAt&&!isNaN(Date.parse(t.doneAt))?isoLocal(new Date(t.doneAt)):t.due;return dd?{cls:'ok',txt:'Done '+fmtShort(dd)}:null}
   if(!t.due)return null;
@@ -1618,6 +1672,11 @@ function dueInfo(t){
   if(diff===0)return {cls:'soon',txt:'Due today'};
   if(diff<=3)return {cls:'soon',txt:'Due in '+diff+'d'};
   return {cls:'',txt:'Due '+fmtShort(t.due)};
+}
+function whoHtml(t){
+  if(!t.assignee)return '';
+  var st=stageOf(stageKey(t)),lim=isDone(t)?null:personLimit(st,t.assignee),n=lim?loadOf(st.id,t.assignee):0,over=lim&&n>lim;
+  return '<span class="who'+(over?' over':'')+'" title="'+esc(t.assignee+(over?' is over their own limit in '+st.name+' ('+n+' of '+lim+')':''))+'">'+esc(initials(t.assignee))+'</span>';
 }
 function cardHtml(t){
   var p=projectOf(projKey(t)),di=dueInfo(t),pr=PRIORITIES.find(function(x){return x.key===t.priority}),done=isDone(t);
@@ -1631,7 +1690,7 @@ function cardHtml(t){
     +(di?'<span class="badge '+di.cls+'" title="Deadline '+esc(t.due||'none')+'">'+esc(di.txt)+'</span>':'')
     +(t.blocked&&!done?'<span class="badge blk">'+ic('prohibit')+'Blocked</span>':'')
     +(t.att?'<span class="att-n" title="'+t.att.length+' attachment'+(t.att.length===1?'':'s')+'">'+ic('paperclip')+t.att.length+'</span>':'')
-    +(t.assignee?'<span class="who" title="'+esc(t.assignee)+'">'+esc(initials(t.assignee))+'</span>':'')
+    +whoHtml(t)
     +'</div></article>';
 }
 function cellId(lane,stage){return lane+'\u00a6'+stage}
@@ -1664,7 +1723,7 @@ function renderBoard(){
       +'</div></div>';
     return;
   }
-  var stages=state.stages,lanes=getLanes(),g=ui.groupBy;
+  var stages=state.stages,lanes=getLanes(),g=ui.groupBy;pLoad=personLoadMap();
   // One pass buckets every task; counts come from the same pass.
   var bucket=Object.create(null),shown=Object.create(null),all=Object.create(null),laneN=Object.create(null);
   state.tasks.forEach(function(t){
@@ -1682,7 +1741,7 @@ function renderBoard(){
     parts.push(['s:'+s.id,'<div class="stage-head" data-k="'+esc('s:'+s.id)+'" data-stage="'+esc(s.id)+'">'+(s.done?ICON.check:'')
       +'<h3>'+(readOnly?esc(s.name):'<button class="st-name" type="button" data-act="rename-stage" data-id="'+esc(s.id)+'" title="Click to rename this column">'+esc(s.name)+'</button>')+'</h3><span class="count">'+(shown[s.id]||0)+'</span><span class="sp"></span>'
       +(s.done&&shown[s.id]&&!readOnly?'<button class="st-arch" type="button" data-act="archive-col" data-stage="'+esc(s.id)+'" title="Archive the '+(shown[s.id])+' card'+(shown[s.id]===1?'':'s')+' shown in this column" aria-label="Archive the cards shown in '+esc(s.name)+'">'+ICON.box+'</button>':'')
-      +(s.wip?'<span class="wip'+wc+'" title="Work-in-progress limit: '+n+' of '+s.wip+'">WIP '+n+'/'+s.wip+'<span class="meter"><b style="width:'+Math.min(100,Math.round(n/s.wip*100))+'%"></b></span></span>':'')+rzHandle(s.id,s.name)+'</div>']);
+      +wipHeadHtml(s,n,wc)+rzHandle(s.id,s.name)+'</div>']);
   });
   var none=!Object.keys(shown).length&&filtering();
   parts.push(['x:nomatch','<div class="nomatch" data-k="x:nomatch"'+(none?'':' hidden')+'>'+ic('funnel-simple')+'No tasks match these filters ·<button type="button" data-act="clear-filters">Clear filters</button></div>']);
@@ -1695,6 +1754,8 @@ function renderBoard(){
     stages.forEach(function(s){
       var k=cellId(L.key,s.id),list=(bucket[k]||[]).sort(byOrder),exp=!!ui.expanded[k],n=exp?list.length:Math.min(list.length,CELL_CAP);
       var h='<div class="cell'+(s.done?' is-done':'')+(col?' collapsed':'')+'" data-k="'+esc('c:'+k)+'" data-stage="'+esc(s.id)+'" data-lane="'+esc(L.key)+'">';
+      var plim=g==='assignee'&&L.key?personLimit(s,L.key):null;
+      if(plim){var pn=loadOf(s.id,L.key);h+='<div class="cell-wip'+wipCls(pn,plim)+'" title="'+esc(L.key+'\'s own limit in '+s.name+': '+pn+' of '+plim)+'">'+ic('user')+pn+'/'+plim+'<span class="meter"><b style="width:'+Math.min(100,Math.round(pn/plim*100))+'%"></b></span></div>'}
       if(col)h+='<span class="mini">'+list.length+' task'+(list.length===1?'':'s')+'</span>';
       else{
         for(var i=0;i<n;i++)h+=cardHtml(list[i]);
@@ -1967,7 +2028,10 @@ function openTask(id,preset){
   var actl=attCtl('task',function(){return att},function(l){att=l},'Attachments');
   var opt=function(v,l,sel){return '<option value="'+esc(v)+'"'+(sel?' selected':'')+'>'+esc(l)+'</option>'};
   // Stage options carry the WIP count the stage would have with this task in it.
-  var stOpts=state.stages.map(function(s){var n=stageLoad(s.id,tid);return opt(s.id,s.name+(s.wip?'  '+n+'/'+s.wip:''),s.id===stageKey(d))}).join('');
+  // With an assignee, a stage with personal limits also shows that person's load there.
+  function stLabel(s,who){var n=stageLoad(s.id,tid),lim=personLimit(s,who),pn=lim?state.tasks.filter(function(t){return !t.archived&&t.id!==tid&&t.assignee===who&&stageKey(t)===s.id}).length+1:0;
+    return s.name+(s.wip?'  '+n+'/'+s.wip:'')+(lim?'  · '+who+' '+pn+'/'+lim:'')}
+  var stOpts=state.stages.map(function(s){return opt(s.id,stLabel(s,d.assignee),s.id===stageKey(d))}).join('');
   var body='<form id="task-form" novalidate><fieldset'+(readOnly?' disabled':'')+'><div class="task-grid">'
     +'<div class="task-main">'
       +'<label class="fld"><span>Title</span><input id="f-title" type="text" maxlength="140" value="'+esc(d.title)+'" placeholder="e.g. Run STR profiling on HEK293T"></label>'
@@ -2002,9 +2066,12 @@ function openTask(id,preset){
       +(readOnly?'':'<button type="button" data-m="cp-toggle" aria-expanded="'+cpOpen+'" aria-controls="task-cp">'+(cpOpen?'Done':'Change')+'</button>');
   }
   function paintStage(){
-    var sel=$('#f-stage'),s=stageOf(sel.value),n=s?stageLoad(s.id,tid):0;
-    sel.style.color=s&&s.wip?(n>s.wip?'var(--crit)':n===s.wip?'var(--warn)':''):'';
-    sel.title=s&&s.wip?(n>s.wip?'Over its WIP limit':n===s.wip?'At its WIP limit':'')+'':'';
+    var sel=$('#f-stage'),s=stageOf(sel.value),n=s?stageLoad(s.id,tid):0,who=canonPerson($('#f-assignee')?$('#f-assignee').value:''),lim=personLimit(s,who);
+    $$('option',sel).forEach(function(o){var x=stageOf(o.value);if(x)o.textContent=stLabel(x,who)});
+    var pn=lim?state.tasks.filter(function(t){return !t.archived&&t.id!==tid&&t.assignee===who&&stageKey(t)===s.id}).length+1:0;
+    var over=(s&&s.wip&&n>s.wip)||(lim&&pn>lim),at=!over&&((s&&s.wip&&n===s.wip)||(lim&&pn===lim));
+    sel.style.color=over?'var(--crit)':at?'var(--warn)':'';
+    sel.title=over?(lim&&pn>lim?who+' would be over their own limit here':'Over its WIP limit'):at?'At the limit':'';
   }
   openModal({pre:ex?ex.ref:'',title:ex?(readOnly?'Task':'Edit task'):'New task',meta:created,wide:'x',body:body,foot:foot,
     onClose:function(){if(!saved)actl.discard()},
@@ -2020,6 +2087,7 @@ function openTask(id,preset){
       $('#f-rep').addEventListener('change',function(e){$('#f-rep-custom').hidden=e.target.value!=='custom'});
       // The "project color" default follows the project chosen in the form.
       $('#f-project').addEventListener('change',function(){$('#f-pdot').style.setProperty('--pc',projDef());paintColor()});
+      $('#f-assignee').addEventListener('change',paintStage);
       $('#f-assignee').addEventListener('input',function(e){var v=initials(cleanName(e.target.value)),av=$('#f-av');av.textContent=v;av.hidden=!v});
     },
     action:function(name,btn){
@@ -2088,6 +2156,42 @@ function handleHtml(i,n,label){
 }
 function moveItem(a,f,t){var x=a.splice(f,1)[0];a.splice(t,0,x)}
 
+/* ---------- work-in-progress limits dialog ---------- */
+function openWip(stageId){
+  var st=stageOf(stageId);if(!st)return;
+  pLoad=personLoadMap();
+  var pw=st.personWip||{def:null,people:{}},names=people(),known=Object.create(null);names.forEach(function(n){known[n]=1});
+  Object.keys(pw.people).forEach(function(n){if(!known[n])names.push(n)});
+  var total=state.tasks.filter(function(t){return !t.archived&&stageKey(t)===st.id}).length;
+  var dis=readOnly?' disabled':'';
+  var row=function(n){var c=loadOf(st.id,n),own=has(pw.people,n)?pw.people[n]:'',lim=own||pw.def;
+    return '<tr><td class="t">'+esc(n)+'</td><td class="mono'+wipCls(c,lim).replace(' ',' wipc-')+'">'+c+(lim?' / '+lim:'')+'</td>'
+      +'<td><input type="number" class="w-own" data-name="'+esc(n)+'" min="1" max="999" value="'+own+'" placeholder="'+(pw.def?'Default ('+pw.def+')':'None')+'" aria-label="'+esc(n)+'\'s own limit"'+dis+'></td></tr>'};
+  var body='<p class="hint">A limit warns when too much sits in this stage. The team limit counts everyone\'s tasks. Personal limits let each person set what they can carry here; blank uses the default.</p>'
+    +'<div class="wip-grid"><label class="fld"><span>Team limit</span><input type="number" id="w-team" min="1" max="999" value="'+(st.wip||'')+'" placeholder="None"'+dis+'></label><span class="mono wip-now">'+total+' task'+(total===1?'':'s')+' now</span>'
+    +'<label class="fld"><span>Default per person</span><input type="number" id="w-def" min="1" max="999" value="'+(pw.def||'')+'" placeholder="None"'+dis+'></label></div>'
+    +(names.length?'<table class="table wip-t"><thead><tr><th>Person</th><th>Now</th><th>Own limit</th></tr></thead><tbody>'+names.map(row).join('')+'</tbody></table>'
+      :'<p class="hint dim">Personal limits appear here once tasks have assignees.</p>')
+    +'<p class="form-err" id="w-err" role="alert" hidden></p>';
+  openModal({title:'Work-in-progress limits',pre:st.name,wide:true,noFocus:true,body:body,
+    foot:readOnly?'<span class="sp"></span><button class="btn" type="button" data-close>Close</button>'
+      :'<button class="btn ghost" type="button" data-m="w-clear">Remove all limits</button><span class="sp"></span><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-m="w-save">Save limits</button>',
+    mount:function(){
+      // The placeholder of each personal field follows the default as it is typed.
+      var d=$('#w-def');if(d)d.addEventListener('input',function(){var v=wipNum(d.value);$$('.w-own').forEach(function(i){i.placeholder=v?'Default ('+v+')':'None'})});
+    },
+    action:function(name){
+      if(name==='w-clear'){$('#w-team').value='';$('#w-def').value='';$$('.w-own').forEach(function(i){i.value=''});return}
+      if(name!=='w-save')return;
+      var bad=$$('#w-team,#w-def,.w-own').some(function(i){return i.value!==''&&!wipNum(i.value)});
+      if(bad){var e=$('#w-err');e.textContent='Limits are whole numbers from 1 to 999, or blank for none.';e.hidden=false;return}
+      var ppl={};$$('.w-own').forEach(function(i){var v=wipNum(i.value);if(v)ppl[i.dataset.name]=v});
+      var npw=normPersonWip({def:$('#w-def').value,people:ppl}),snap=JSON.stringify(state);
+      state.stages=state.stages.map(function(x){if(x.id!==st.id)return x;var y=Object.assign({},x,{wip:wipNum($('#w-team').value)});if(npw)y.personWip=npw;else delete y.personWip;return y});
+      commit();closeModal();if(JSON.stringify(state)!==snap)offerUndo('Limits for '+st.name+' updated',snap);
+    }});
+}
+
 /* ---------- stages dialog ---------- */
 function openStages(){
   var draft=state.stages.map(function(s){return Object.assign({},s)}),confirm=-1,removed=[];
@@ -2096,7 +2200,7 @@ function openStages(){
   function count(id){return state.tasks.filter(function(t){return dest(stageKey(t))===id}).length}
   function nameOf(id){var s=draft.find(function(x){return x.id===id});return s?s.name:'the first stage'}
   function rows(){
-    return '<div class="lrow-head"><span></span><span>Name</span><span>WIP limit</span><span>Done stage</span><span></span></div>'
+    return '<div class="lrow-head"><span></span><span>Name</span><span>Team WIP</span><span>Done stage</span><span></span></div>'
     +draft.map(function(s,i){
       var n=count(s.id),conf='';
       if(confirm===i){
@@ -2107,7 +2211,7 @@ function openStages(){
       }
       return '<div class="lrow srow" data-i="'+i+'"><div class="lrow-main">'+handleHtml(i,draft.length,s.name)
         +'<input type="text" class="s-name" maxlength="40" value="'+esc(s.name)+'" aria-label="Stage name">'
-        +'<input type="number" class="s-wip" min="0" max="999" placeholder="None" value="'+(s.wip||'')+'" aria-label="WIP limit for '+esc(s.name)+'">'
+        +'<span class="s-wipcell"><input type="number" class="s-wip" min="0" max="999" placeholder="None" value="'+(s.wip||'')+'" aria-label="Team WIP limit for '+esc(s.name)+'">'+(s.personWip?'<i class="ph ph-user" title="Personal limits are set. Change them from the stage header on the board." aria-label="Personal limits set"></i>':'')+'</span>'
         +'<label class="done-tog"><input type="checkbox" class="s-done"'+(s.done?' checked':'')+' aria-label="'+esc(s.name)+' counts as done"><span class="on">'+ic('check-square')+'Done</span><span class="off">'+ic('square')+'No</span></label>'
         +'<button class="icon-btn trash" type="button" data-m="del" data-i="'+i+'" aria-label="Remove '+esc(s.name)+'"'+(draft.length<2?' disabled':'')+'>'+ic('trash')+'</button>'
         +'</div>'+conf+'</div>';
@@ -2742,8 +2846,9 @@ function boardWorkbook(){
   projs.forEach(function(p){var st=projStats(byP(p.id));
     sum.push([p.name,st.tasks,st.done,st.open,st.late,st.blocked,{v:st.pct,s:XS.pct},st.start,st.end,st.next?st.next.due:'',st.next?st.next.ref+' '+st.next.title:'',{v:attText(p.att),s:XS.wrap}])});
   sum.push([{v:'All projects',s:XS.bold},{v:all.tasks,s:XS.bold},{v:all.done,s:XS.bold},{v:all.open,s:XS.bold},{v:all.late,s:XS.bold},{v:all.blocked,s:XS.bold},{v:all.pct,s:XS.boldPct},{v:'',s:XS.bold},{v:'',s:XS.bold},{v:'',s:XS.bold},{v:'',s:XS.bold},{v:'',s:XS.bold}]);
-  sum.push([],[{v:'By stage',s:XS.bold}],H(['Stage','Tasks','WIP limit','Counts as done']));
-  state.stages.forEach(function(s){sum.push([s.name,tasks.filter(function(t){return !t.archived&&stageKey(t)===s.id}).length,s.wip||'',s.done?'Yes':'No'])});
+  sum.push([],[{v:'By stage',s:XS.bold}],H(['Stage','Tasks','Team WIP limit','Counts as done','Personal limits']));
+  state.stages.forEach(function(s){var pw=s.personWip,pl=pw?[pw.def?'default '+pw.def:''].concat(Object.keys(pw.people).map(function(n){return n+' '+pw.people[n]})).filter(Boolean).join('; '):'';
+    sum.push([s.name,tasks.filter(function(t){return !t.archived&&stageKey(t)===s.id}).length,s.wip||'',s.done?'Yes':'No',pl])});
   var sheets=[{name:sheetName('Summary',used),cols:[34,8,8,8,10,10,9,13,14,14,44,48],rows:sum,freeze:4,headRow:3,first:true}];
   // Task tables
   var cols=['Ref','Task','Project','Stage','Status','Priority','Assignee','Start','Due','Done on','Blocked','Repeats','Attachments','Notes'],widths=[9,46,28,14,10,10,16,13,13,13,9,16,40,60];
@@ -3203,6 +3308,7 @@ document.addEventListener('click',function(e){
   if(!state||!loaded)return;
   if(a){
     if(k==='rename-stage'){renameStage(a);return}
+    if(k==='wip'){openWip(a.dataset.stage);return}
     if(k==='att-open'){var ar=attFind(a.dataset.owner,a.dataset.id);if(ar)attOpen(ar,false);return}
     if(k==='f-overdue'||k==='f-blocked'||k==='f-week'){var fk=k.slice(2);ui.f[fk]=!ui.f[fk];render();return}
     if(k==='clear-filters'){clearFilters();return}
