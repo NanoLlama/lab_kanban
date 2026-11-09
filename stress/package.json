@@ -7,14 +7,15 @@
     "robust": "node robust.js",
     "shared": "node shared.js",
     "layout": "node giant.js",
-    "all": "node perf.js && node robust.js && node shared.js && node features.js && node autobackup.js && node boards.js && node safety.js && node giant.js && node repeat-export.js && node attachments.js && node wip.js",
+    "all": "node perf.js && node robust.js && node shared.js && node features.js && node autobackup.js && node boards.js && node safety.js && node giant.js && node repeat-export.js && node attachments.js && node wip.js && node timeblocker.js",
     "features": "node features.js",
     "autobackup": "node autobackup.js",
     "boards": "node boards.js",
     "safety": "node safety.js",
     "repeat-export": "node repeat-export.js",
     "attachments": "node attachments.js",
-    "wip": "node wip.js"
+    "wip": "node wip.js",
+    "timeblocker": "node timeblocker.js"
   },
   "devDependencies": {
     "playwright": "^1.56.1"
