@@ -4,14 +4,44 @@ const path = require('path');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
 
-const FILE = 'file://' + path.resolve(process.env.TIME_BLOCKER || path.join(__dirname, '../time-blocker.html'));
+const http = require('http');
+const fs = require('fs');
+// Served over http://127.0.0.1 rather than file:// so the test can use the browser's private file storage
+// as a stand-in backup folder (it is not available to file:// pages).
+const ROOT = path.resolve(__dirname, '..');
+const server = http.createServer((req, res) => {
+  if (req.url === '/blank') { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<!doctype html><title>blank</title>'); return; }
+  const f = path.join(ROOT, decodeURIComponent(new URL(req.url, 'http://x').pathname));
+  if (!f.startsWith(ROOT) || !fs.existsSync(f)) { res.writeHead(404); res.end(); return; }
+  res.writeHead(200, { 'content-type': f.endsWith('.html') ? 'text/html' : 'application/octet-stream' }); fs.createReadStream(f).pipe(res);
+});
+let FILE, BOARD;
 const NOW = new Date(2026, 10, 9, 8, 0); // Mon 9 Nov 2026, 08:00 local: fixed so "next free time" is predictable
 const log = (o) => console.log(JSON.stringify(o));
 
 (async () => {
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const base = 'http://127.0.0.1:' + server.address().port + '/';
+  FILE = base + 'time-blocker.html'; BOARD = base + 'lab-board.html'; // BOARD's origin is the same as FILE's
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 950 }, acceptDownloads: true });
   await ctx.route(/unpkg\.com|fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  // The folder dialog cannot be driven headless; hand back a real folder from the browser's private file storage.
+  // This headless Chromium closes the page when a folder handle is read back from IndexedDB (even on a blank
+  // page; the board's own autobackup test hits it too). Real Chrome stores and reads them normally. So the test
+  // stores a folder's name in place of the handle and swaps the handle back in when it is read. Choosing,
+  // writing, permissions and the board's database are otherwise untouched.
+  const FS_SHIM = () => {
+    if (!(navigator.storage && navigator.storage.getDirectory)) return; // e.g. the opaque page a download opens
+    const cache = {};
+    (async () => { const root = await navigator.storage.getDirectory(); cache[''] = root; for (const n of ['picked', 'lab-backups']) cache[n] = await root.getDirectoryHandle(n, { create: true }); })();
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (v, k) { if (v instanceof FileSystemHandle) v = { __fsdir: v.name }; return put.call(this, v, k); };
+    const res = Object.getOwnPropertyDescriptor(IDBRequest.prototype, 'result');
+    Object.defineProperty(IDBRequest.prototype, 'result', { configurable: true, get() { const r = res.get.call(this); return r && r.__fsdir !== undefined ? cache[r.__fsdir] : r; } });
+  };
+  await ctx.addInitScript(FS_SHIM);
+  await ctx.addInitScript(() => { window.showDirectoryPicker = async () => (await navigator.storage.getDirectory()).getDirectoryHandle('picked', { create: true }); });
   await ctx.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('labboard.theme', 'dark'); sessionStorage.setItem('seeded', '1'); } });
   const page = await ctx.newPage();
   const errors = [];
@@ -42,6 +72,15 @@ const log = (o) => console.log(JSON.stringify(o));
   assert.deepEqual([await page.inputValue('#ed-start'), await page.inputValue('#ed-end')], ['09:00', '10:00']);
   await page.fill('#ed-title', 'Email triage');
   await page.click('[data-m=ed-save]');
+
+  // First change: the time blocker offers automatic backup once. Choose a folder.
+  assert.equal(await page.isVisible('#ab-chip'), true);
+  assert.equal((await page.textContent('#ab-chip')).trim(), 'Set up backup');
+  await page.waitForSelector('#modal-title:text("Set up automatic backup")');
+  await page.click('[data-m=ab-choose]');
+  await page.waitForSelector('#overlay', { state: 'hidden' });
+  assert.match(await page.textContent('#toast'), /Automatic backup on\. Saving _time-blocker\.json to the folder “picked”/);
+  assert.equal((await page.textContent('#ab-chip')).trim(), 'Auto-backup on');
 
   // Drag draws a block of the dragged length.
   const y0 = await yFor(600), y1 = await yFor(690);
@@ -107,7 +146,7 @@ const log = (o) => console.log(JSON.stringify(o));
   assert.equal(await page.inputValue('#tb-note'), 'Top three: methods, antibodies, meeting');
 
   // Backup round-trip: download, wipe, restore; the restored state must match.
-  const before = await page.evaluate(() => new Promise((res) => { const r = indexedDB.open('timeblock'); r.onsuccess = () => { const g = r.result.transaction('kv').objectStore('kv').get('state'); g.onsuccess = () => res(g.result); }; }));
+  const before = await page.evaluate(() => new Promise((res) => { const r = indexedDB.open('timeblock'); r.onsuccess = () => { const g = r.result.transaction('kv').objectStore('kv').get('state'); g.onsuccess = () => res(JSON.parse(g.result)); }; }));
   await page.click('#btn-backup');
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-m=b-dl]')]);
   assert.equal(dl.suggestedFilename(), 'time-blocker-backup-2026-11-09.json');
@@ -123,9 +162,33 @@ const log = (o) => console.log(JSON.stringify(o));
   await page.click('#b-restore'); await page.click('#b-restore');
   await page.waitForTimeout(400);
   assert.equal(await page.$$eval('.tb-block', (x) => x.length), 5);
-  const after = await page.evaluate(() => new Promise((res) => { const r = indexedDB.open('timeblock'); r.onsuccess = () => { const g = r.result.transaction('kv').objectStore('kv').get('state'); g.onsuccess = () => res(g.result); }; }));
+  const after = await page.evaluate(() => new Promise((res) => { const r = indexedDB.open('timeblock'); r.onsuccess = () => { const g = r.result.transaction('kv').objectStore('kv').get('state'); g.onsuccess = () => res(JSON.parse(g.result)); }; }));
   assert.deepEqual(after.days, before.days);
   assert.deepEqual(after.inbox, before.inbox);
+
+  // The backup file follows every change.
+  await page.waitForTimeout(1800);
+  const onDisk = await page.evaluate(async () => {
+    const d = await (await navigator.storage.getDirectory()).getDirectoryHandle('picked');
+    return JSON.parse(await (await (await d.getFileHandle('_time-blocker.json')).getFile()).text());
+  });
+  assert.deepEqual(onDisk.days, after.days);
+  assert.deepEqual(onDisk.inbox, after.inbox);
+  // Pause stops writing; it stays paused after a reload; Resume writes at once.
+  await page.click('#ab-chip'); await page.click('[data-m=ab-pause]'); await page.click('[data-close]');
+  await page.fill('#ib-add', 'Paused item'); await page.press('#ib-add', 'Enter');
+  await page.waitForTimeout(1800);
+  const readInbox = () => page.evaluate(async () => {
+    const d = await (await navigator.storage.getDirectory()).getDirectoryHandle('picked');
+    return JSON.parse(await (await (await d.getFileHandle('_time-blocker.json')).getFile()).text()).inbox.map((x) => x.title);
+  });
+  assert.ok(!(await readInbox()).includes('Paused item'));
+  await page.reload(); await page.waitForTimeout(500);
+  assert.equal((await page.textContent('#ab-chip')).trim(), 'Resume backup');
+  assert.equal(await page.isHidden('#overlay'), true, 'no prompt while the user has paused it');
+  await page.click('#ab-chip'); await page.waitForTimeout(400);
+  assert.equal((await page.textContent('#ab-chip')).trim(), 'Auto-backup on');
+  assert.ok((await readInbox()).includes('Paused item'));
 
   // Never touches the board's storage.
   const dbs = (await page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name))).sort();
@@ -136,5 +199,46 @@ const log = (o) => console.log(JSON.stringify(o));
 
   assert.deepEqual(errors, []);
   log({ test: 'timeblocker:phase1', ok: true });
-  await browser.close();
+  await ctx.close();
+
+  // The board already backs up to a folder: the time blocker offers that folder, reads it without changing the
+  // board's database, and writes its file beside the board's.
+  const ctx2 = await browser.newContext({ viewport: { width: 1400, height: 950 } });
+  await ctx2.route(/unpkg\.com|fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  await ctx2.addInitScript(FS_SHIM);
+  const p2 = await ctx2.newPage();
+  const errors2 = [];
+  p2.on('pageerror', (e) => errors2.push(e.message));
+  await p2.goto(BOARD.replace('lab-board.html', 'blank'));
+  // Seed what the board stores when its backup folder is set (done here directly, not through the board's UI).
+  const seeded = await p2.evaluate(async () => {
+    const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle('lab-backups', { create: true });
+    await (await (await dir.getFileHandle('main-backup.json', { create: true })).createWritable()).close();
+    const db = await new Promise((res) => { const r = indexedDB.open('labboard', 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('kv')) r.result.createObjectStore('kv'); }; r.onsuccess = () => res(r.result); });
+    await new Promise((res) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(dir, 'backupDir'); tx.oncomplete = res; });
+    const keys = await new Promise((res) => { const q = db.transaction('kv').objectStore('kv').getAllKeys(); q.onsuccess = () => res(q.result); });
+    db.close(); return { version: db.version, keys };
+  });
+  await p2.goto(FILE);
+  await p2.waitForSelector('#status[data-s]');
+  await p2.fill('#ib-add', 'First item'); await p2.press('#ib-add', 'Enter');
+  await p2.waitForSelector('#modal-title:text("Set up automatic backup")');
+  assert.match(await p2.textContent('#modal-body'), /already backs up to the folder lab-backups/);
+  await p2.click('[data-m=ab-board]');
+  await p2.waitForSelector('#overlay', { state: 'hidden' });
+  assert.match(await p2.textContent('#toast'), /the board's folder “lab-backups”/);
+  const files = await p2.evaluate(async () => {
+    const d = await (await navigator.storage.getDirectory()).getDirectoryHandle('lab-backups'); const n = [];
+    for await (const k of d.keys()) n.push(k); return n.sort();
+  });
+  assert.deepEqual(files, ['_time-blocker.json', 'main-backup.json']);
+  const boardAfter = await p2.evaluate(async () => {
+    const db = await new Promise((res) => { const r = indexedDB.open('labboard'); r.onsuccess = () => res(r.result); });
+    const keys = await new Promise((res) => { const q = db.transaction('kv').objectStore('kv').getAllKeys(); q.onsuccess = () => res(q.result); });
+    db.close(); return { version: db.version, keys };
+  });
+  assert.deepEqual(boardAfter, seeded);
+  assert.deepEqual(errors2, []);
+  log({ test: 'timeblocker:board-folder', ok: true });
+  await browser.close(); server.close();
 })().catch((e) => { console.error(e); process.exit(1); });

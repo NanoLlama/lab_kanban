@@ -85,6 +85,19 @@ h1,h2,h3,h4,h5{margin:0;font-weight:500;letter-spacing:-.015em}
 .btn.danger:hover{background:color-mix(in srgb,var(--crit) 10%,transparent)}
 .btn.danger.text{border-color:transparent;padding-inline:6px}
 .btn.danger.armed{background:color-mix(in srgb,var(--crit) 16%,transparent);border-color:var(--crit)}
+.ab-card{display:flex;align-items:center;gap:12px;padding:12px;border-radius:var(--r-md);background:var(--side);flex-wrap:wrap}
+.ab-ic{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--idle) 16%,transparent);color:var(--idle)}
+.ab-ic .ph{font-size:17px}
+.ab-card[data-s="on"] .ab-ic{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.ab-card[data-s="paused"] .ab-ic{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn)}
+.ab-card[data-s="error"] .ab-ic,.ab-card[data-s="unsupported"] .ab-ic{background:color-mix(in srgb,var(--crit) 14%,transparent);color:var(--crit)}
+.ab-txt{display:flex;flex-direction:column;gap:1px;margin-right:auto;min-width:0;flex:1 1 240px}
+.ab-txt b{font-size:13.5px;font-weight:500;overflow-wrap:anywhere}
+.ab-txt b .mono{font-size:12.5px}
+.ab-txt small{font:12px var(--f-mono);color:var(--muted)}
+.ab-txt small.prose{font-family:var(--f-body)}
+.ab-btns{display:flex;flex-wrap:wrap;gap:6px}
+#ab-sec{display:flex;flex-direction:column;gap:8px}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
 .btn.sm{padding:4px 8px;min-height:28px;font-size:12px}
 .btn .kbd{font:10.5px var(--f-mono);opacity:.7}
@@ -344,6 +357,7 @@ body{padding-block:14px 24px}
     </div>
     <div class="actions">
       <span class="status" id="status" data-s="saving"><i></i><span>Loading</span></span>
+      <button class="ab-chip" id="ab-chip" type="button" hidden><i></i><span>Auto-backup</span></button>
       <div class="seg theme-seg" id="theme" role="group" aria-label="Theme">
         <button class="seg-opt" type="button" data-theme-opt="system" aria-pressed="true" title="Match the system setting" aria-label="System theme"><i class="ph ph-desktop" aria-hidden="true"></i></button>
         <button class="seg-opt" type="button" data-theme-opt="light" aria-pressed="false" title="Light theme" aria-label="Light theme"><i class="ph ph-sun" aria-hidden="true"></i></button>
@@ -594,11 +608,11 @@ function nowMin(){var d=new Date();return d.getHours()*60+d.getMinutes()}
 var viewDate=today(),selectedId=null;
 var ui=loadPrefs();
 function loadPrefs(){
-  var d={panel:true,tab:'inbox',showDone:false};
-  try{var r=JSON.parse(localStorage.getItem(PREF_KEY)||'null');if(isObj(r)){d.panel=r.panel!==false;d.showDone=!!r.showDone}}catch(e){}
+  var d={panel:true,tab:'inbox',showDone:false,abDontAsk:false,abPaused:false,abNoticeSeen:false};
+  try{var r=JSON.parse(localStorage.getItem(PREF_KEY)||'null');if(isObj(r)){d.panel=r.panel!==false;d.showDone=!!r.showDone;d.abDontAsk=!!r.abDontAsk;d.abPaused=!!r.abPaused;d.abNoticeSeen=!!r.abNoticeSeen}}catch(e){}
   return d;
 }
-function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify({panel:ui.panel,tab:ui.tab,showDone:ui.showDone}))}catch(e){}}
+function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify({panel:ui.panel,tab:ui.tab,showDone:ui.showDone,abDontAsk:ui.abDontAsk,abPaused:ui.abPaused,abNoticeSeen:ui.abNoticeSeen}))}catch(e){}}
 function dayOf(date){return state.days[date]||null}
 function dayFor(date){return state.days[date]||(state.days[date]={date:date,note:'',reviewedAt:'',blocks:[]})}
 function blocksOf(date){var d=dayOf(date);return d?d.blocks:[]}
@@ -628,7 +642,7 @@ function idbTx(mode,fn,db){return new Promise(function(res,rej){var tx=(db||idb)
 function idbGet(k){return idbTx('readonly',function(s){return s.get(k)})}
 function idbPut(k,v){return idbTx('readwrite',function(s){return s.put(v,k)})}
 function setStatus(s,text){var e=$('#status');e.dataset.s=s;e.lastElementChild.textContent=text}
-function commit(){state.meta.updatedAt=new Date().toISOString();tidyDays();render();scheduleSave()}
+function commit(){state.meta.updatedAt=new Date().toISOString();tidyDays();render();scheduleSave();abSchedule();abMaybeAsk()}
 function scheduleSave(){
   if(readOnly)return;
   setStatus('saving','Saving');
@@ -667,7 +681,182 @@ async function boot(){
   var raw=await readStored();
   try{state=raw?normalize(JSON.parse(raw)):C.defaultState()}catch(e){state=C.defaultState();toast('The saved time blocker data could not be read, so it starts empty. Restore a backup if you have one.',8000)}
   loaded=true;setStatus('local','Saved in this browser only');
-  render();scrollToNow();askPersist();
+  render();scrollToNow();askPersist();abInit();
+}
+
+/* ---------- automatic backup ----------
+   Same idea as the board: Chrome and Edge on a computer can keep writing into a folder the user picked once
+   (File System Access API). The time blocker writes _time-blocker.json there a moment after every change.
+   The folder handle is kept in the time blocker's own database. If the board already backs up to a folder,
+   that folder is offered first: its handle is read from the board's database read-only and copied here. */
+var AB_FILE='_time-blocker.json',AB_DIR='backupDir',AB_TIME='timeblock.autobackup.at';
+var BROWSER_REQ='<span class="browser-req">Works only in Chrome or Edge on a computer</span>';
+var ab={supported:typeof window.showDirectoryPicker==='function'&&window.self===window.top,embedded:window.self!==window.top,
+  dir:null,state:'off',lastAt:0,timer:null,writing:false,again:false,err:'',userPaused:false,asked:false,boardDir:null};
+function abTime(){return ab.lastAt?new Date(ab.lastAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}
+function abName(){return ab.dir?(ab.dir.name||'backup folder')+'/'+AB_FILE:AB_FILE}
+function syncAbChip(){
+  var c=$('#ab-chip');if(!c)return;
+  c.hidden=!ab.supported;c.dataset.s=ab.state;
+  c.lastElementChild.textContent={on:'Auto-backup on',paused:'Resume backup',error:'Backup failed',off:'Set up backup'}[ab.state];
+  c.title=ab.state==='on'?'Writing to '+abName()+(ab.lastAt?', last saved '+abTime():''):ab.state==='paused'?'Click to resume writing to '+abName():ab.state==='error'?ab.err:'Click to choose a backup folder';
+  var s=$('#ab-sec');if(s)s.innerHTML=abSectionHtml();
+  if(state)renderHeader();
+}
+// The board's backup folder, if it has one. The board's database is opened without a version so it is never
+// created or upgraded here; if it does not exist, the open is aborted. Read-only transaction only.
+function boardBackupDir(){
+  return new Promise(function(res){
+    var r;try{r=indexedDB.open('labboard')}catch(e){res(null);return}
+    r.onupgradeneeded=function(){try{r.transaction.abort()}catch(e){}};
+    r.onerror=function(e){if(e&&e.preventDefault)e.preventDefault();res(null)};r.onblocked=function(){res(null)};
+    r.onsuccess=function(){
+      var db=r.result;
+      try{if(!db.objectStoreNames.contains('kv')){db.close();res(null);return}
+        var q=db.transaction('kv','readonly').objectStore('kv').get(AB_DIR);
+        q.onsuccess=function(){db.close();var d=q.result;res(d&&d.kind==='directory'?d:null)};q.onerror=function(){db.close();res(null)}}
+      catch(e){try{db.close()}catch(x){}res(null)}
+    };
+  });
+}
+async function abSameAsBoard(){try{return !!(ab.dir&&ab.boardDir&&await ab.dir.isSameEntry(ab.boardDir))}catch(e){return false}}
+async function abInit(){
+  try{ab.lastAt=+localStorage.getItem(AB_TIME)||0}catch(e){}
+  syncAbChip();
+  if(!ab.supported){if(!ui.abNoticeSeen&&!readOnly&&hasData()&&$('#overlay').hidden)openAbUnsupported();return}
+  ab.boardDir=await boardBackupDir();
+  var dir=null;try{if(idb)dir=await idbGet(AB_DIR)}catch(e){}
+  if(dir){
+    ab.dir=dir;
+    var p='prompt';try{p=await dir.queryPermission({mode:'readwrite'})}catch(e){}
+    if(p==='granted'&&ui.abPaused){ab.state='paused';ab.userPaused=true;syncAbChip()}
+    else if(p==='granted'){ab.state='on';syncAbChip();abWrite()}
+    // After a browser restart the folder needs one OK, asked once per visit.
+    else{ab.state='paused';syncAbChip();if($('#overlay').hidden&&!readOnly){ab.asked=true;openAbReconnect()}}
+    return;
+  }
+  abMaybeAsk();
+}
+function hasData(){return !!(state&&(Object.keys(state.days).length||state.inbox.length))}
+// No backup yet: ask once per visit, the first time there is something worth backing up.
+function abMaybeAsk(){
+  if(!ab.supported||ab.dir||ab.asked||ui.abDontAsk||readOnly||!loaded||!hasData())return;
+  setTimeout(function(){if(ab.dir||ab.asked||drag||!$('#overlay').hidden)return;ab.asked=true;openAbSetup()},900);
+}
+function abSchedule(ms){if(ab.state!=='on')return;clearTimeout(ab.timer);ab.timer=setTimeout(function(){ab.timer=null;abWrite()},ms==null?1500:ms)}
+async function abWrite(){
+  if(!ab.dir||!state||!loaded)return;
+  if(ab.writing){ab.again=true;return}
+  ab.writing=true;
+  try{
+    var fh=await ab.dir.getFileHandle(AB_FILE,{create:true}),w=await fh.createWritable();
+    await w.write(backupJson());await w.close();
+    ab.lastAt=Date.now();ab.state='on';ab.err='';try{localStorage.setItem(AB_TIME,String(ab.lastAt))}catch(e){}
+  }catch(e){abFail(e)}
+  ab.writing=false;syncAbChip();
+  if(ab.again){ab.again=false;abWrite()}
+}
+function abFail(e){
+  var n=e&&e.name;
+  ab.state=ab.dir&&(n==='NotAllowedError'||n==='SecurityError')?'paused':'error';
+  ab.err=!ab.dir?'The browser did not open a folder'+(e&&e.message?': '+e.message:'.')
+    :n==='NotFoundError'?'The backup folder was moved or deleted. Choose a folder again.'
+    :n==='NotAllowedError'||n==='SecurityError'?'The browser needs permission again to write '+abName()+'.'
+    :n==='NoModificationAllowedError'||n==='InvalidStateError'?'The backup folder is locked or read-only. Choose another folder.'
+    :'Could not write the backup'+(e&&e.message?': '+e.message:'.');
+  syncAbChip();
+  if(ab.state==='error')toast(ab.err,7000);
+}
+// Both must run from a click: browsers only show the folder dialog or the permission prompt after a user action.
+async function abUse(d,how){
+  ab.dir=d;ab.state='on';ab.userPaused=false;ui.abPaused=false;ui.abDontAsk=false;savePrefs();
+  try{if(idb)await idbPut(AB_DIR,d)}catch(e){}
+  await abWrite();
+  if(ab.state==='on')toast('Automatic backup on. Saving '+AB_FILE+' to '+how+' “'+(d.name||'backup')+'” after every change.',6000);
+  return ab.state==='on';
+}
+async function abChoose(){
+  var d;
+  try{d=await window.showDirectoryPicker({id:'lab-board-backups',mode:'readwrite'})}
+  catch(e){if(e&&e.name==='AbortError')return false;abFail(e);return false}
+  return abUse(d,'the folder');
+}
+async function abUseBoard(){
+  var d=ab.boardDir;if(!d)return abChoose();
+  var p='prompt';
+  try{p=await d.queryPermission({mode:'readwrite'});if(p!=='granted')p=await d.requestPermission({mode:'readwrite'})}catch(e){abFail(e);return false}
+  if(p!=='granted'){toast('The browser did not allow writing to that folder.',4000);return false}
+  return abUse(d,'the board\'s folder');
+}
+function abPause(){
+  if(!ab.dir)return;
+  clearTimeout(ab.timer);ab.timer=null;ab.state='paused';ab.userPaused=true;ui.abPaused=true;savePrefs();syncAbChip();
+  toast('Automatic backup paused.',3000);
+}
+async function abResume(){
+  if(!ab.dir)return abChoose();
+  if(ab.userPaused){ab.userPaused=false;ui.abPaused=false;savePrefs()}
+  try{var p=await ab.dir.requestPermission({mode:'readwrite'});if(p==='granted'){ab.state='on';await abWrite();if(ab.state==='on')toast('Automatic backup resumed.');return ab.state==='on'}}
+  catch(e){abFail(e)}
+  return false;
+}
+async function abOff(){
+  clearTimeout(ab.timer);ab.timer=null;ab.dir=null;ab.state='off';ab.err='';ab.userPaused=false;ui.abPaused=false;savePrefs();
+  try{if(idb)await idbTx('readwrite',function(s){return s.delete(AB_DIR)})}catch(e){}
+  syncAbChip();toast('Automatic backup turned off. The existing file was left in place.',4000);
+}
+function abSectionHtml(){
+  var card=function(st,icon,title,sub,btns,prose){return '<div class="ab-card" data-s="'+st+'"><span class="ab-ic">'+ic(icon)+'</span><div class="ab-txt"><b>'+title+'</b><small'+(prose?' class="prose"':'')+'>'+sub+'</small></div>'+(btns?'<div class="ab-btns">'+btns+'</div>':'')+'</div>'};
+  var b=function(m,label,cls){return '<button class="btn sm'+(cls?' '+cls:'')+'" type="button" data-m="'+m+'">'+label+'</button>'};
+  if(!ab.supported)return card('unsupported','hard-drives','Not available here',(ab.embedded?'It does not work inside an embedded view. Open time-blocker.html directly in Chrome or Edge to use it.':'This browser cannot write to a file automatically.')+' Download a backup below regularly instead; the dot on the Backup button reminds you after 7 days.','',true)
+    +'<p class="hint dim" style="margin:0">'+BROWSER_REQ+'</p>';
+  var where='<span class="mono">'+esc(abName())+'</span>';
+  var last=ab.lastAt?'Last write '+(isoLocal(new Date(ab.lastAt))===today()?'today ':isoLocal(new Date(ab.lastAt))+' ')+esc(abTime()):'Not written yet';
+  var off=b('ab-off','Turn off','ghost'),chg=b('ab-choose','Change folder');
+  var useBoard=ab.boardDir?b('ab-board','Use the board\'s folder',ab.dir?'':'primary'):'';
+  var html=ab.state==='on'?card('on','hard-drives','On · writing to '+where,last+' · after every change',b('ab-pause','Pause')+chg+off)
+    :ab.state==='paused'?card('paused','pause-circle','Paused · '+where,ab.userPaused?'Changes are not being written. Resume to write now.':'The browser needs your OK to write to this folder again.',b('ab-resume','Resume','primary')+chg+off,true)
+    :ab.state==='error'?card('error','warning-circle','Backup failed',esc(ab.err),useBoard+b('ab-choose','Choose folder…',ab.boardDir?'':'primary')+(ab.dir?off:''),true)
+    :card('off','hard-drives','Off',ab.boardDir?'The board backs up to the folder “'+esc(ab.boardDir.name||'backup')+'”. Keep the time blocker\'s copy ('+AB_FILE+') there too, updated after every change.':'Choose a folder once. The time blocker keeps '+AB_FILE+' there, updated after every change. If you use the board\'s backup folder, its files sit side by side.',useBoard+b('ab-choose',ab.boardDir?'Other folder…':'Choose folder…',ab.boardDir?'':'primary'),true);
+  return html+'<p class="hint dim" style="margin:0">Pick a folder that syncs to the cloud (Dropbox, OneDrive, Google Drive, iCloud Drive) so the copy survives losing this computer. '+BROWSER_REQ+'</p>';
+}
+// Shared by the setup, reconnect and Backup dialogs.
+async function abAction(name){
+  if(name==='ab-choose')return abChoose();
+  if(name==='ab-board')return abUseBoard();
+  if(name==='ab-resume')return abResume();
+  if(name==='ab-pause'){abPause();return false}
+  if(name==='ab-off'){await abOff();return false}
+  return false;
+}
+function openAbSetup(){
+  var bd=ab.boardDir;
+  openModal({title:'Set up automatic backup',noDirty:true,noFocus:true,
+    body:'<p class="ab-note" style="margin-bottom:10px">'+BROWSER_REQ+'</p>'
+      +(bd?'<p>Your board already backs up to the folder <strong>'+esc(bd.name||'backup')+'</strong>. Keep the time blocker\'s copy there too: it writes <strong>'+AB_FILE+'</strong> beside the board\'s files a moment after every change, so restarts, cleared browser data or a new computer cannot wipe out your plans.</p>'
+        :'<p>Keep a copy of your plans in a folder on your computer. Choose the folder once and the time blocker writes <strong>'+AB_FILE+'</strong> there a moment after every change, so restarts, cleared browser data or a new computer cannot wipe out your plans. The board\'s backup folder is a good place for it.</p>')
+      +'<p class="hint">Good choice: a folder that syncs to the cloud (Dropbox, OneDrive, Google Drive, iCloud Drive). After the browser restarts, Chrome or Edge asks once to allow writing to the folder again; pick <strong>Allow on every visit</strong> if offered to skip that.</p>'
+      +'<label class="chk"><input type="checkbox" id="ab-dont"> Don\'t ask again when I open the time blocker</label>',
+    foot:'<span class="sp"></span><button class="btn ghost" type="button" data-m="ab-later">Not now</button>'
+      +(bd?'<button class="btn" type="button" data-m="ab-choose">Other folder…</button><button class="btn primary" type="button" data-m="ab-board">Use the board\'s folder</button>'
+        :'<button class="btn primary" type="button" data-m="ab-choose">Choose folder…</button>'),
+    action:async function(name){
+      if(name==='ab-later'){ui.abDontAsk=$('#ab-dont').checked;savePrefs();closeModal();if(ui.abDontAsk)toast('You can turn it on any time under Backup.',4000);return}
+      if(await abAction(name))closeModal();
+    }});
+}
+function openAbReconnect(){
+  openModal({title:'Resume automatic backup?',noDirty:true,noFocus:true,
+    body:'<p>The time blocker backs up to <strong>'+esc(abName())+'</strong>. After a browser restart, the browser needs your OK once before it can write there again.</p><p class="hint">'+BROWSER_REQ+'</p>',
+    foot:'<button class="btn ghost" type="button" data-m="ab-off">Turn off</button><span class="sp"></span><button class="btn ghost" type="button" data-close>Not now</button><button class="btn primary" type="button" data-m="ab-resume">Resume backup</button>',
+    action:async function(name){var ok=await abAction(name);if(ok||name==='ab-off')closeModal()}});
+}
+function openAbUnsupported(){
+  openModal({title:'Automatic backup is not available here',noDirty:true,noFocus:true,
+    body:'<p>'+BROWSER_REQ+'</p><p>'+(ab.embedded?'It also does not work inside an embedded view. To use it, open time-blocker.html directly in Chrome or Edge.':'This browser cannot keep writing to a backup file. To use automatic backup, open the time blocker in Chrome or Edge on a computer.')+'</p>'
+      +'<p class="hint">Here, use <strong>Backup → Download backup (.json)</strong> regularly. The dot on the Backup button reminds you when the last backup is more than 7 days old.</p>',
+    foot:'<span class="sp"></span><button class="btn primary" type="button" data-m="ab-ok">OK</button>',
+    action:function(name){if(name==='ab-ok'){ui.abNoticeSeen=true;savePrefs();closeModal()}}});
 }
 
 /* other tabs of the time blocker in this browser: each save leaves a note, the others reload from storage */
@@ -745,8 +934,8 @@ function renderHeader(){
   $('#stats').innerHTML='<span><b>'+fmtHours(s.planned)+'</b> planned</span><span>·</span><span><b>'+fmtHours(s.focus)+'</b> focus</span><span>·</span><span><b>'+s.done+'/'+s.total+'</b> done</span>';
   var note=$('#tb-note'),day=dayOf(viewDate),v=day?day.note:'';
   if(document.activeElement!==note&&note.value!==v){note.value=v;growNote()}
-  var hasData=Object.keys(state.days).length||state.inbox.length,last=state.meta.lastBackupAt?Date.parse(state.meta.lastBackupAt):0;
-  $('#btn-backup').classList.toggle('stale',!!hasData&&(!last||Date.now()-last>7*DAY));
+  var last=Math.max(state.meta.lastBackupAt?Date.parse(state.meta.lastBackupAt):0,ab.state==='on'?ab.lastAt:0);
+  $('#btn-backup').classList.toggle('stale',hasData()&&(!last||Date.now()-last>7*DAY));
   document.body.classList.toggle('no-panel',!ui.panel);
   $('#btn-panel').setAttribute('aria-pressed',String(ui.panel));
 }
@@ -962,7 +1151,8 @@ function openBackup(){
   var pending=null,armed=false,last=state.meta.lastBackupAt?Date.parse(state.meta.lastBackupAt):0;
   var ago=last?Math.floor((Date.now()-last)/DAY):-1;
   openModal({title:'Backup and restore',noFocus:true,noDirty:true,wide:true,
-    body:'<div class="sec"><h3>Download a backup</h3><p class="hint" style="margin:0">One .json file with every day, block, inbox item and setting. The board\'s data is never part of it.</p>'
+    body:'<div class="sec"><h3>Automatic backup</h3><div id="ab-sec">'+abSectionHtml()+'</div></div>'
+      +'<div class="sec"><h3>Download a backup</h3><p class="hint" style="margin:0">One .json file with every day, block, inbox item and setting. The board\'s data is never part of it.</p>'
       +'<div class="row-btns"><button class="btn primary" type="button" data-m="b-dl">'+ic('download-simple')+'Download backup (.json)</button><span class="last-dl'+(ago<0||ago>7?' stale':'')+'"><i></i>'+(last?'Last download '+(ago<=0?'today':ago===1?'yesterday':ago+' days ago'):'No backup downloaded yet')+'</span></div>'
       +'<p class="msg" id="b-msg" role="status" hidden></p></div>'
       +'<div class="sec"><h3>Restore</h3><p class="hint" style="margin:0">Replaces everything in the time blocker with the backup. You can undo it for a few seconds afterwards.</p>'
@@ -981,6 +1171,7 @@ function openBackup(){
       });
     },
     action:async function(name,btn){
+      if(/^ab-/.test(name)){await abAction(name);syncAbChip();return}
       if(name==='b-pick'){$('#b-file').click();return}
       if(name==='b-dl'){
         var r=await saveFile('time-blocker-backup-'+today()+'.json',backupJson()),m=$('#b-msg');m.hidden=false;
@@ -1187,6 +1378,7 @@ $('#tb-pick').addEventListener('change',function(e){if(e.target.value)goTo(e.tar
 $('#tb-cal').addEventListener('click',function(){var p=$('#tb-pick');p.value=viewDate;try{p.showPicker()}catch(x){p.focus();p.click()}});
 $('#btn-new').addEventListener('click',function(){if(loaded)newBlock()});
 $('#btn-backup').addEventListener('click',function(){if(loaded)openBackup()});
+$('#ab-chip').addEventListener('click',function(){if(!loaded)return;if(ab.state==='paused')abResume();else openBackup()});
 $('#btn-settings').addEventListener('click',function(){if(loaded)openSettings()});
 $('#btn-keys').addEventListener('click',function(){if(loaded)openShortcuts()});
 $('#btn-panel').addEventListener('click',function(){ui.panel=!ui.panel;savePrefs();render()});
