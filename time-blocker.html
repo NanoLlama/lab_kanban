@@ -264,7 +264,19 @@ body{padding-block:14px 24px}
 @keyframes tbpulse{50%{opacity:.35}}
 .tb-block.st-skipped{opacity:.6}
 .tb-block.st-skipped .tb-b-title{text-decoration:line-through}
-.tb-block.st-done .tb-b-head .ph-check-circle{color:var(--ok)}
+.tb-block.st-done{background:color-mix(in srgb,var(--ok) 14%,var(--surface))}
+.tb-block.st-done:not(.overlap){box-shadow:0 0 0 1px color-mix(in srgb,var(--ok) 45%,var(--line)),var(--shadow)}
+.tb-block.st-done::before{display:block;background:var(--ok)}
+.tb-block.st-done .tb-b-title{color:var(--soft);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--soft) 55%,transparent)}
+/* done checkbox: drawn as a box, filled green with a check when done */
+.tb-chk{flex:none;width:16px;height:16px;margin:-1px 0;border:0;padding:0;border-radius:4px;display:inline-grid;place-items:center;cursor:pointer;
+  background:var(--surface);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--pc) 55%,var(--muted));color:transparent}
+.tb-chk .ph{font-size:11px;font-weight:700}
+.tb-chk:hover{box-shadow:inset 0 0 0 1.5px var(--ok);color:color-mix(in srgb,var(--ok) 60%,transparent)}
+.tb-chk:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.st-done .tb-chk{background:var(--ok);box-shadow:none;color:#fff}
+.st-done .tb-chk:hover{color:#fff;background:color-mix(in srgb,var(--ok) 80%,var(--fg))}
+.ro .tb-chk{cursor:default}
 .tb-b-head{display:flex;align-items:center;gap:6px;min-width:0;font:11px var(--f-mono);color:var(--muted);white-space:nowrap}
 .tb-b-head .ph{font-size:12px}
 .tb-b-dur{opacity:.85}
@@ -885,13 +897,14 @@ function yOf(m){return (m-range.start)*PPM}
 function minuteAt(clientY){var r=$('#tb-col').getBoundingClientRect();return range.start+(clientY-r.top)/PPM}
 function blockHtml(b,lay){
   var col=blockColor(b),title=blockTitle(b),dur=b.end-b.start,short=dur*PPM<44,L=lay||{col:0,cols:1,overlap:false};
-  var st=b.status,stIc=st==='done'?ic('check-circle'):st==='partial'?ic('circle-half'):st==='skipped'?ic('prohibit'):'';
+  var st=b.status,stIc=st==='partial'?ic('circle-half'):st==='skipped'?ic('prohibit'):'';
+  var chk='<button class="tb-chk" type="button" tabindex="-1" data-chk="'+esc(b.id)+'" aria-pressed="'+(st==='done')+'" aria-label="'+(st==='done'?'Done. Mark not done':'Mark done')+'" title="'+(st==='done'?'Done. Click to mark not done (X)':'Mark done (X)')+'"'+(readOnly?' disabled':'')+'>'+ic('check')+'</button>';
   var kindIc=b.focus.kind==='inbox'?ic('tray'):'';
   return '<div class="tb-block st-'+st+' k-'+b.focus.kind+(short?' short':'')+(L.overlap?' overlap':'')+(b.id===selectedId?' sel':'')+(col?'':' nocolor')+'" data-id="'+esc(b.id)+'" tabindex="0" role="button"'
-    +' aria-label="'+esc(fmtHM(b.start)+' to '+fmtHM(b.end)+', '+title+(L.overlap?', overlaps another block':'')+(st!=='planned'?', '+st:''))+'" aria-keyshortcuts="Enter Delete ArrowUp ArrowDown Shift+ArrowUp Shift+ArrowDown"'
+    +' aria-label="'+esc(fmtHM(b.start)+' to '+fmtHM(b.end)+', '+title+(L.overlap?', overlaps another block':'')+(st!=='planned'?', '+st:''))+'" aria-keyshortcuts="Enter X Delete ArrowUp ArrowDown Shift+ArrowUp Shift+ArrowDown"'
     +' style="top:'+yOf(b.start)+'px;height:'+Math.max(14,dur*PPM-2)+'px;left:calc('+(L.col/L.cols*100)+'% + 3px);width:calc('+(100/L.cols)+'% - 6px)'+(col?';--pc:'+esc(col):'')+'">'
     +(readOnly?'':'<span class="tb-rz top" data-rz="top" aria-hidden="true"></span>')
-    +'<div class="tb-b-head"><span class="tb-b-time">'+fmtHM(b.start)+'–'+fmtHM(b.end)+'</span>'+(short?'':'<span class="tb-b-dur">'+fmtDur(dur)+'</span>')+kindIc+stIc+(L.overlap?'<span class="tb-ov" title="Overlaps another block">'+ic('warning')+'</span>':'')+'</div>'
+    +'<div class="tb-b-head">'+chk+'<span class="tb-b-time">'+fmtHM(b.start)+'–'+fmtHM(b.end)+'</span>'+(short?'':'<span class="tb-b-dur">'+fmtDur(dur)+'</span>')+kindIc+stIc+(L.overlap?'<span class="tb-ov" title="Overlaps another block">'+ic('warning')+'</span>':'')+'</div>'
     +'<div class="tb-b-title">'+esc(title)+'</div>'
     +(readOnly?'':'<span class="tb-rz bottom" data-rz="bottom" aria-hidden="true"></span>')+'</div>';
 }
@@ -1027,6 +1040,7 @@ function openEditor(b,isNew){
       :'<p class="hint dim">Your inbox is empty. Add items in the Inbox panel, or choose Ad-hoc and tick “Save to Inbox”.</p>')+'</div>'
     +'<div class="tb-kind" data-kind="none"><label class="fld"><span>Label (optional)</span><input id="ed-label" type="text" maxlength="300" value="'+esc(kind==='none'?f.title:'')+'" placeholder="e.g. Lunch, buffer, commute"></label></div>'
     +'<label class="fld"><span>Notes for this block</span><textarea id="ed-notes" rows="3" placeholder="What to get done, links, reminders">'+esc(f.notes)+'</textarea></label>'
+    +'<label class="chk"><input type="checkbox" id="ed-done"'+(d.status==='done'?' checked':'')+'> Done</label>'
     +'<p class="form-err" id="ed-err" role="alert" hidden></p></fieldset></form>';
   var foot=readOnly?'<span class="sp"></span><button class="btn" type="button" data-close>Close</button>'
     :(isNew?'':'<button class="btn danger text" type="button" data-m="ed-del">'+ic('trash')+'Delete</button><button class="btn" type="button" data-m="ed-dup">'+ic('copy')+'Duplicate</button>')
@@ -1074,6 +1088,7 @@ function openEditor(b,isNew){
     if(!blk){blk=C.normBlock(Object.assign({},b,{start:r.start,end:r.end,focus:focus}),{});blk.id=b.id;list.push(blk)}
     else{blk.start=r.start;blk.end=r.end;blk.focus=C.normFocus(focus)}
     blk.focus=C.normFocus(focus);
+    if($('#ed-done').checked)blk.status='done';else if(blk.status==='done')blk.status='planned';
     selectedId=blk.id;focusAfter=blk.id;
     if(!keepOpen)closeModal();
     commit();
@@ -1082,6 +1097,15 @@ function openEditor(b,isNew){
     else if(ov)toast('Saved. It overlaps '+ov+' block'+(ov===1?'':'s')+'.',4000);
     return true;
   }
+}
+// Done is a tick on the block itself; ticking again returns it to planned. A done inbox block does not
+// finish the inbox item, which may need more blocks; the item has its own tick in the panel.
+function toggleDone(id,fromKey){
+  var b=findBlock(id);if(!b||readOnly)return;
+  b.status=b.status==='done'?'planned':'done';
+  selectedId=b.id;if(fromKey)focusAfter=b.id;
+  commit();
+  toast(b.status==='done'?'Done: '+blockTitle(b)+'.':'Marked not done: '+blockTitle(b)+'.',1800);
 }
 function newDraft(start,end,focus){
   var r=fixRange(start,end,snapOf());
@@ -1211,7 +1235,7 @@ function openShortcuts(){
   var row=function(k,t){return '<tr><td><kbd>'+k+'</kbd></td><td>'+t+'</td></tr>'};
   openModal({title:'Keyboard shortcuts',noDirty:true,noFocus:true,body:'<table class="table tb-keys"><tbody>'
     +row('N','New block at the next free time')+row('T','Go to today')+row('← / →','Previous or next day')+row('/','Add to inbox')
-    +row('↑ / ↓','Move the selected block by the snap')+row('Shift + ↑ / ↓','Make the selected block shorter or longer')+row('Enter','Open the selected block')+row('Delete','Delete the selected block (with Undo)')
+    +row('↑ / ↓','Move the selected block by the snap')+row('Shift + ↑ / ↓','Make the selected block shorter or longer')+row('Enter','Open the selected block')+row('X','Mark the selected block done, or not done')+row('Delete','Delete the selected block (with Undo)')
     +row('Alt while dragging','5-minute steps')+row('Esc','Close a dialog')+row('?','This list')+'</tbody></table>',
     foot:'<span class="sp"></span><button class="btn" type="button" data-close>Done</button>'});
 }
@@ -1238,6 +1262,7 @@ function edgeScroll(clientY){var sc=$('#tb-scroll'),r=sc.getBoundingClientRect()
 var colEl=$('#tb-col');
 colEl.addEventListener('pointerdown',function(e){
   if(e.button>0||!loaded)return;
+  if(e.target.closest('.tb-chk'))return;
   var blk=e.target.closest('.tb-block'),m=minuteAt(e.clientY);
   if(blk){
     var b=findBlock(blk.dataset.id);if(!b)return;
@@ -1285,6 +1310,7 @@ function endDrag(e,cancel){
   offerUndo((d.type==='move'?'Moved to ':'Now ')+fmtHM(blk.start)+'–'+fmtHM(blk.end)+'.',snap);
 }
 colEl.addEventListener('pointerup',function(e){endDrag(e,false)});
+colEl.addEventListener('click',function(e){var c=e.target.closest('.tb-chk');if(c&&!readOnly)toggleDone(c.dataset.chk,false)});
 colEl.addEventListener('pointercancel',function(e){endDrag(e,true)});
 colEl.addEventListener('lostpointercapture',function(e){if(drag&&drag.pid===e.pointerId&&drag.moved)endDrag(e,false)});
 
@@ -1296,6 +1322,7 @@ colEl.addEventListener('keydown',function(e){
   var b=findBlock(el.dataset.id);if(!b)return;
   if(e.key==='Enter'||e.key===' '){e.preventDefault();openEditor(b,false);return}
   if(readOnly)return;
+  if(e.key==='x'||e.key==='X'){e.preventDefault();toggleDone(b.id,true);return}
   if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deleteBlock(b.id);var nx=$('.tb-block');if(nx)nx.focus();return}
   if(e.key!=='ArrowUp'&&e.key!=='ArrowDown')return;
   e.preventDefault();

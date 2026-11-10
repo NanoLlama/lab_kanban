@@ -133,6 +133,31 @@ const log = (o) => console.log(JSON.stringify(o));
   assert.deepEqual(await page.$$eval('.tb-ib small', (s) => s.map((x) => x.textContent)), ['1 block today, 1 h', '1 block today, 1 h']);
   assert.match(await page.textContent('#stats'), /5\.3 h planned.*2\.0 h focus.*0\/5 done/);
 
+  // Done: tick the box on a block (no drag, no editor), X on a focused block, and the editor's Done box.
+  const isDone = (t) => page.$eval(`.tb-block:has-text("${t}")`, (b) => b.classList.contains('st-done'));
+  const before0 = await times('Email triage');
+  await page.click('.tb-block:has-text("Email triage") .tb-chk');
+  assert.equal(await isDone('Email triage'), true);
+  assert.equal(await page.isHidden('#overlay'), true, 'ticking does not open the editor');
+  assert.equal(await times('Email triage'), before0, 'ticking does not move the block');
+  assert.equal(await page.getAttribute('.tb-block:has-text("Email triage") .tb-chk', 'aria-pressed'), 'true');
+  assert.match(await page.textContent('#stats'), /1\/5 done/);
+  await page.focus('.tb-block:has-text("Write methods")'); await page.keyboard.press('x');
+  assert.equal(await isDone('Write methods'), true);
+  assert.ok((await page.evaluate(() => document.activeElement.className)).includes('tb-block'), 'focus stays on the block');
+  await page.keyboard.press('x');
+  assert.equal(await isDone('Write methods'), false);
+  await page.click('.tb-block:has-text("Email triage") .tb-chk');
+  assert.equal(await isDone('Email triage'), false);
+  await page.click('.tb-block:has-text("Coffee") .tb-b-title');
+  assert.equal(await page.isChecked('#ed-done'), false);
+  await page.check('#ed-done'); await page.click('[data-m=ed-save]');
+  assert.equal(await isDone('Coffee'), true);
+  await page.click('.tb-block:has-text("Coffee") .tb-b-title'); await page.uncheck('#ed-done'); await page.click('[data-m=ed-save]');
+  assert.equal(await isDone('Coffee'), false);
+  await page.click('.tb-block:has-text("Order antibodies") .tb-chk');
+  assert.match(await page.textContent('#stats'), /1\/5 done/);
+
   // Day note, other days, persistence.
   await page.fill('#tb-note', 'Top three: methods, antibodies, meeting');
   await page.keyboard.press('Escape'); await page.click('#tb-next');
@@ -144,6 +169,8 @@ const log = (o) => console.log(JSON.stringify(o));
   await page.reload(); await page.waitForTimeout(500);
   assert.equal(await page.$$eval('.tb-block', (x) => x.length), 5);
   assert.equal(await page.inputValue('#tb-note'), 'Top three: methods, antibodies, meeting');
+  assert.equal(await isDone('Order antibodies'), true);
+  assert.equal(await page.$eval('.tb-ib:has-text("Order antibodies")', (x) => x.classList.contains('done')), false, 'a done block leaves its inbox item open');
 
   // Backup round-trip: download, wipe, restore; the restored state must match.
   const before = await page.evaluate(() => new Promise((res) => { const r = indexedDB.open('timeblock'); r.onsuccess = () => { const g = r.result.transaction('kv').objectStore('kv').get('state'); g.onsuccess = () => res(JSON.parse(g.result)); }; }));
