@@ -523,13 +523,45 @@ function normSettings(x){
   if(typeof x.defaultBoardId==='string'&&x.defaultBoardId)d.defaultBoardId=clip(x.defaultBoardId,120);
   return d;
 }
-// Board task references arrive in Phase 2 (labboard.taskref/1); until then a board focus has nothing to keep.
-function normTaskRef(x){return null}
+/* ---------- taskref (shared) ----------
+   A block that works on a board card keeps a snapshot of the card (labboard.taskref/1, docs/board-interchange.md),
+   so it still reads right when the card's board is not open, was deleted, or lives in another browser.
+   linkTarget is the board's own (byte-identical). */
+var TASKREF='labboard.taskref/1';
+function linkTarget(u){u=String(u||'').trim();if(/^https?:\/\/[^\s]+$/i.test(u))return u;if(/^(\\\\|[a-z]:[\\\/]|\/|~\/|smb:\/\/|file:\/\/)/i.test(u)&&!/[\x00-\x1f]/.test(u))return u;return ''}
+function str(v,n){return typeof v==='string'?clip(v,n):''}
+function normTaskRef(x){
+  if(!isObj(x))return null;
+  var id=str(x.taskId,120);if(!id||(x.schema!=null&&x.schema!==TASKREF))return null;
+  var pr=PRIORITIES.some(function(p){return p.key===x.priority})?x.priority:'medium';
+  var start=validDate(x.start)?x.start:'',due=validDate(x.due)?x.due:'';
+  var links=(Array.isArray(x.links)?x.links:[]).filter(isObj).map(function(l){var u=linkTarget(l.url);return u?{name:clip(cleanName(l.name)||u,200),url:clip(u,2000)}:null}).filter(Boolean).slice(0,50);
+  var hex=function(c){return typeof c==='string'&&HEX.test(c)?retune(c.toLowerCase()):''};
+  return {schema:TASKREF,boardId:str(x.boardId,120)||'main',boardTitle:clip(cleanName(x.boardTitle),120),taskId:id,ref:str(x.ref,20),
+    title:clip(cleanName(x.title),300)||'Untitled task',desc:str(x.desc,20000),
+    projectId:str(x.projectId,120),projectName:clip(cleanName(x.projectName),60),projectColor:hex(x.projectColor),
+    stageId:str(x.stageId,120),stageName:clip(cleanName(x.stageName),40),stageDone:!!x.stageDone,
+    priority:pr,assignee:clip(cleanName(x.assignee),60),start:start,due:due,blocked:!!x.blocked,color:hex(x.color),
+    links:links,archived:!!x.archived,pulledAt:isoStr(x.pulledAt),sourceUpdatedAt:isoStr(x.sourceUpdatedAt)};
+}
+// A TaskRef from a board's normalized state. Pure: the same inputs give the same output apart from pulledAt.
+function toTaskRef(board,boardId,task){
+  var p=(board.projects||[]).find(function(x){return x.id===task.projectId})||null;
+  var st=(board.stages||[]).find(function(x){return x.id===task.stageId})||(board.stages||[])[0]||{id:'',name:'',done:false};
+  var links=(task.att||[]).filter(function(a){return a&&a.kind==='link'}).map(function(a){return {name:a.name,url:a.url}});
+  return normTaskRef({schema:TASKREF,boardId:boardId,boardTitle:board.meta&&board.meta.title,taskId:task.id,ref:task.ref,title:task.title,desc:task.desc,
+    projectId:p?p.id:'',projectName:p?p.name:'',projectColor:p?p.color:'',stageId:st.id,stageName:st.name,stageDone:!!st.done,
+    priority:task.priority,assignee:task.assignee,start:task.start,due:task.due,blocked:task.blocked,color:task.color,links:links,archived:!!task.archived,
+    pulledAt:new Date().toISOString(),sourceUpdatedAt:board.meta&&board.meta.updatedAt});
+}
+// The fields a person would notice changing on the card. Equal means the snapshot needs no refresh.
+var REF_FIELDS=['boardTitle','ref','title','desc','projectId','projectName','projectColor','stageId','stageName','stageDone','priority','assignee','start','due','blocked','color','links','archived'];
+function sameRef(a,b){if(!a||!b)return a===b;for(var i=0;i<REF_FIELDS.length;i++){var k=REF_FIELDS[i];if(canon(a[k])!==canon(b[k]))return false}return true}
 function normFocus(f){
   f=isObj(f)?f:{};
   var o={kind:KINDS.indexOf(f.kind)>=0?f.kind:'adhoc',title:clip(cleanName(f.title),300),notes:clip(f.notes,20000),
     color:typeof f.color==='string'&&HEX.test(f.color)?retune(f.color.toLowerCase()):'',inboxId:typeof f.inboxId==='string'?clip(f.inboxId,40):'',ref:null};
-  if(o.kind==='board'){o.ref=normTaskRef(f.ref);if(!o.ref)o.kind='adhoc'}
+  if(o.kind==='board'){o.ref=normTaskRef(f.ref);if(o.ref)o.title=o.ref.title;else o.kind='adhoc'}
   if(o.kind==='inbox'&&!o.inboxId)o.kind='adhoc';
   if(o.kind!=='inbox')o.inboxId='';
   if(o.kind==='adhoc'&&!o.title)o.title='Untitled block';
@@ -591,7 +623,8 @@ function normalize(raw){
 return {PRIORITIES:PRIORITIES,PALETTE:PALETTE,NO_PROJ:NO_PROJ,DAY:DAY,MONTHS:MONTHS,DAY_MIN:DAY_MIN,SNAPS:SNAPS,GRID:GRID,HEX:HEX,
   retune:retune,esc:esc,p2:p2,uid:uid,isoLocal:isoLocal,toDay:toDay,fromDay:fromDay,validDate:validDate,clip:clip,cleanName:cleanName,has:has,isObj:isObj,cleanColors:cleanColors,canon:canon,clone:clone,
   clampMin:clampMin,snapMin:snapMin,fmtHM:fmtHM,parseHM:parseHM,fmtDur:fmtDur,fmtHours:fmtHours,fixRange:fixRange,overlaps:overlaps,layoutBlocks:layoutBlocks,nextFreeSlot:nextFreeSlot,dayStats:dayStats,
-  defaultSettings:defaultSettings,defaultState:defaultState,normFocus:normFocus,normBlock:normBlock,normalize:normalize};
+  defaultSettings:defaultSettings,defaultState:defaultState,normFocus:normFocus,normBlock:normBlock,normalize:normalize,
+  TASKREF:TASKREF,linkTarget:linkTarget,normTaskRef:normTaskRef,toTaskRef:toTaskRef,sameRef:sameRef};
 })();
 if(typeof module!=='undefined')module.exports=TBCore;
 </script>

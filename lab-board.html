@@ -644,7 +644,150 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
   .prows .pcount,.prows .lrow-head .ph-c{display:none}
   .table .hide-sm{display:none}
 }
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* ---------- day planner (tb-): the Day view, merged in from time-blocker.html ---------- */
+.day-only{display:none!important}
+.v-day .day-only{display:inline-flex!important}
+.v-day .board-only,.v-day #filters,.v-day #banner,.v-day #view{display:none!important}
+.planner{display:none}
+.v-day .planner{display:flex;flex-direction:column;gap:12px}
+.pl-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px}
+.pl-bar .sp{flex:1}
+.tb-datenav{display:flex;align-items:center;gap:6px;min-width:0}
+.tb-datenav h2{font:500 20px/1.15 var(--f-body);letter-spacing:-.015em;margin:0 4px;white-space:nowrap}
+.tb-rel{font:12px var(--f-mono);color:var(--muted);white-space:nowrap}
+.tb-pick{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0}
+.pl-stats{margin-left:6px}
+.tb-main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.no-ppanel .tb-main{grid-template-columns:minmax(0,1fr)}
+.no-ppanel .tb-panel{display:none}
+.tb-daycol{display:flex;flex-direction:column;gap:10px;min-width:0}
+.tb-note{width:100%;min-height:36px;resize:none;border:1px solid var(--divider);border-radius:var(--r-md);background:var(--surface);color:var(--fg);padding:7px 12px;font:13.5px/1.45 var(--f-body);overflow:hidden}
+.tb-note:hover{border-color:color-mix(in srgb,var(--fg) 45%,transparent)}
+.tb-note:focus-visible{border-color:var(--accent);outline-offset:0}
+.tb-scroll{position:relative;height:calc(100vh - 230px);min-height:360px;overflow-y:auto;overflow-x:hidden;border-radius:10px;box-shadow:0 0 0 1px var(--line);background:var(--surface);overscroll-behavior:contain}
+.tb-grid{position:relative;display:grid;grid-template-columns:58px minmax(0,1fr);margin:10px 0 14px}
+.tb-hours{position:relative}
+.tb-hour{position:absolute;right:10px;transform:translateY(-50%);font:11px var(--f-mono);color:var(--muted)}
+.tb-col{position:relative;border-left:1px solid var(--line);margin-right:12px;touch-action:pan-y;
+  background-image:linear-gradient(to bottom,var(--line) 1px,transparent 1px),linear-gradient(to bottom,color-mix(in srgb,var(--fg) 4%,transparent) 1px,transparent 1px);
+  background-size:100% var(--hour-px,64px),100% var(--snap-px,16px);cursor:crosshair}
+.tb-empty{position:absolute;left:16px;right:16px;top:12px;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-md);border:1px dashed var(--divider);background:color-mix(in srgb,var(--surface) 85%,transparent);color:var(--soft);font-size:13px;pointer-events:none}
+.tb-empty .ph{font-size:18px;color:var(--accent)}
+.tb-empty b{font-weight:500;color:var(--fg)}
+/* block: tinted with its color, a 3px edge mark like the board's cards */
+.tb-block{--pc:var(--accent);position:absolute;display:flex;flex-direction:column;gap:1px;padding:4px 8px 4px 11px;border-radius:var(--r-md);overflow:hidden;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
+  background:color-mix(in srgb,var(--pc) 14%,var(--surface));box-shadow:0 0 0 1px color-mix(in srgb,var(--pc) 38%,var(--line)),var(--shadow);color:var(--fg);z-index:1}
+.tb-block::before{content:"";position:absolute;left:0;top:4px;bottom:4px;width:3px;border-radius:0 3px 3px 0;background:var(--pc)}
+.tb-block:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--pc) 70%,var(--line)),var(--shadow)}
+.tb-block.sel,.tb-block:focus-visible{outline:2px solid var(--accent);outline-offset:1px;z-index:3}
+.tb-block.overlap{box-shadow:0 0 0 1.5px var(--warn),var(--shadow)}
+.tb-block.k-none{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--fg) 4%,var(--surface)) 0 6px,var(--surface) 6px 12px);box-shadow:0 0 0 1px var(--divider)}
+.tb-block.k-none::before{display:none}
+.tb-block.k-none .tb-b-title{color:var(--soft);font-weight:400}
+.tb-block.st-active::before{width:4px;animation:tbpulse 1.6s ease-in-out infinite}
+@keyframes tbpulse{50%{opacity:.35}}
+.tb-block.st-skipped{opacity:.6}
+.tb-block.st-skipped .tb-b-title{text-decoration:line-through}
+.tb-block.st-done{background:color-mix(in srgb,var(--ok) 14%,var(--surface))}
+.tb-block.st-done:not(.overlap){box-shadow:0 0 0 1px color-mix(in srgb,var(--ok) 45%,var(--line)),var(--shadow)}
+.tb-block.st-done::before{display:block;background:var(--ok)}
+.tb-block.st-done .tb-b-title{color:var(--soft);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--soft) 55%,transparent)}
+/* done checkbox: drawn as a box, filled green with a check when done */
+.tb-chk{flex:none;width:16px;height:16px;margin:-1px 0;border:0;padding:0;border-radius:4px;display:inline-grid;place-items:center;cursor:pointer;
+  background:var(--surface);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--pc) 55%,var(--muted));color:transparent}
+.tb-chk .ph{font-size:11px;font-weight:700}
+.tb-chk:hover{box-shadow:inset 0 0 0 1.5px var(--ok);color:color-mix(in srgb,var(--ok) 60%,transparent)}
+.tb-chk:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.st-done .tb-chk{background:var(--ok);box-shadow:none;color:#fff}
+.st-done .tb-chk:hover{color:#fff;background:color-mix(in srgb,var(--ok) 80%,var(--fg))}
+.tb-b-head{display:flex;align-items:center;gap:6px;min-width:0;font:11px var(--f-mono);color:var(--muted);white-space:nowrap}
+.tb-b-head .ph{font-size:12px}
+.tb-b-dur{opacity:.85}
+.tb-ref{color:var(--fg);font-weight:500}
+.tb-flag{font:500 10.5px var(--f-body);padding:0 6px;border-radius:99px;box-shadow:0 0 0 1px var(--line);color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.tb-flag.ok{color:var(--ok);box-shadow:0 0 0 1px color-mix(in srgb,var(--ok) 45%,transparent)}
+.tb-flag.warn{color:var(--warn);box-shadow:0 0 0 1px color-mix(in srgb,var(--warn) 45%,transparent)}
+.tb-ov{color:var(--warn);display:inline-flex;margin-left:auto}
+.tb-b-title{font-size:13px;font-weight:500;line-height:1.3;overflow-wrap:anywhere;overflow:hidden}
+.tb-block.short{flex-direction:row;align-items:center;gap:8px;padding-block:0}
+.tb-block.short .tb-b-title{white-space:nowrap;text-overflow:ellipsis;font-size:12px}
+.tb-rz{position:absolute;left:0;right:0;height:7px;cursor:ns-resize;z-index:2}
+.tb-rz.top{top:-2px}.tb-rz.bottom{bottom:-2px}
+.tb-block.sel .tb-rz::after,.tb-block:hover .tb-rz::after{content:"";position:absolute;left:50%;width:22px;height:3px;margin-left:-11px;border-radius:2px;background:color-mix(in srgb,var(--pc) 70%,var(--fg))}
+.tb-rz.top::after{top:2px}.tb-rz.bottom::after{bottom:2px}
+.tb-ghost{--pc:var(--accent);opacity:.75;pointer-events:none;box-shadow:0 0 0 1.5px var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--surface));left:3px;width:calc(100% - 6px);z-index:4}
+.tb-now{position:absolute;left:-6px;right:0;height:2px;background:var(--accent);box-shadow:0 0 10px color-mix(in srgb,var(--accent) 60%,transparent);z-index:5;pointer-events:none}
+.tb-now span{position:absolute;left:-9px;top:-8px;color:var(--accent);font-size:14px;line-height:1}
+/* side panel: the board's tasks and the inbox */
+.tb-panel{position:sticky;top:14px;display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:10px;box-shadow:0 0 0 1px var(--line);background:var(--surface);max-height:calc(100vh - 120px);overflow:auto}
+.tb-ptabs{display:flex}
+.tb-ptabs .seg-opt{flex:1}
+.tb-pane{display:flex;flex-direction:column;gap:8px}
+.tb-tk-flt{display:grid;grid-template-columns:1fr auto;gap:6px}
+.tb-tk-flt .search,.tb-kind .search{grid-column:1/-1;width:100%!important}
+.modal .search input[type=search]{border:0;min-height:0;padding:0;background:none}
+.toast button{white-space:nowrap}
+.tb-tk-flt .inp{min-height:32px;font-size:12.5px}
+.tb-tk-flt .btn{min-height:32px}
+.tb-tk,.tb-ib{display:flex;align-items:center;gap:4px;padding:4px 4px 4px 2px;border-radius:var(--r-md);border-top:1px solid var(--line)}
+.tb-tk:first-child,.tb-ib:first-child{border-top:0}
+.tb-tk[draggable=true],.tb-ib[draggable=true]{cursor:grab}
+.tb-tk:hover,.tb-ib:hover{background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.tb-tk-main,.tb-ib-main{flex:1;min-width:0;border:0;background:none;padding:3px 2px 3px 6px;text-align:left;cursor:pointer;color:var(--fg);display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;font-size:13px}
+.tb-tk-main{box-shadow:inset 3px 0 0 var(--pc);border-radius:0 4px 4px 0;padding-left:9px}
+.tb-tk-main .ref{font:11px var(--f-mono);color:var(--muted)}
+.tb-tk-main .t,.tb-ib-main .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;max-width:100%;font-weight:500}
+.tb-tk-main .t{flex-basis:100%}
+.tb-tk.done .t{color:var(--muted);text-decoration:line-through}
+.tb-tk-main small,.tb-ib-main small{flex-basis:100%;font:11px var(--f-mono);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb-tk-main small.use,.tb-ib-main small.use{color:var(--accent)}
+.tb-tk-main small .late{color:var(--crit)}
+.tb-ib-main .ph{font-size:13px;color:var(--muted)}
+.tb-dot{width:8px;height:8px;border-radius:50%;background:var(--pc);flex:none}
+.tb-ib.done .t{color:var(--muted);text-decoration:line-through}
+.tb-ib-chk .ph{font-size:16px}
+.tb-ib.done .tb-ib-chk{color:var(--ok)}
+.tb-ib-form{display:flex;gap:6px}
+.tb-ib-form .inp{min-height:32px;font-size:13px}
+.tb-ib-empty{margin:4px 2px}
+.tb-panel .more{align-self:flex-start}
+.tb-panel-foot{font-size:11.5px;color:var(--muted);margin:0}
+/* block editor */
+.tb-ed-times{display:grid;grid-template-columns:110px 110px 1fr;gap:10px;align-items:end;margin-bottom:8px}
+.tb-ed-times input{font-family:var(--f-mono)!important}
+.tb-ed-dur{font-size:12.5px;color:var(--muted);padding-bottom:9px}
+.tb-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+#ed-form fieldset{display:flex;flex-direction:column;gap:12px;border:0;padding:0;margin:0;min-width:0}
+#ed-form .tb-chips{margin:-4px 0 2px}
+.tb-kind{display:flex;flex-direction:column;gap:10px}
+.tb-kind select[size]{min-height:150px;padding:4px;background-image:none}
+.tb-tsum{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:var(--r-md);background:var(--side);font-size:12.5px}
+.tb-tsum .row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;color:var(--soft)}
+.tb-tsum b{font-weight:500;color:var(--fg)}
+.tb-pal{display:flex;flex-wrap:wrap;gap:6px}
+.tb-pal .sw{width:24px;height:24px;border-radius:6px;background:var(--c);border:0;padding:0;cursor:pointer;display:inline-grid;place-items:center;color:var(--muted);position:relative}
+.tb-pal .sw.none,.tb-pal .sw.custom{background:none;box-shadow:inset 0 0 0 1px var(--divider)}
+.tb-pal .sw.custom.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--fg)}
+.tb-pal .sw.custom input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.tb-pal .sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--fg)}
+.tb-set{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.tb-set .span2{grid-column:1/-1}
+.tb-keys td:first-child{width:170px;white-space:nowrap}
+/* on the board: a card with time planned today */
+.badge.tb-pl{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent);display:inline-flex;align-items:center;gap:3px}
+.badge.tb-pl .ph{font-size:11px}
+@media (max-width:900px){
+  .tb-main{grid-template-columns:1fr}
+  .tb-panel{position:static;max-height:none;order:2}
+  .tb-scroll{height:70vh}
+}
+@media (max-width:600px){
+  .tb-ed-times{grid-template-columns:1fr 1fr}
+  .tb-ed-dur{grid-column:1/-1;padding:0}
+  .tb-set{grid-template-columns:1fr}
+  .tb-datenav h2{font-size:17px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
 <div id="app">
@@ -671,8 +814,9 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
       <div class="seg tabs" role="tablist" aria-label="View">
         <button class="seg-opt" role="tab" id="tab-board" type="button" data-view="board" aria-selected="true"><i class="ph ph-kanban" aria-hidden="true"></i>Board</button>
         <button class="seg-opt" role="tab" id="tab-timeline" type="button" data-view="timeline" aria-selected="false"><i class="ph ph-chart-bar-horizontal" aria-hidden="true"></i>Timelines</button>
+        <button class="seg-opt" role="tab" id="tab-day" type="button" data-view="day" aria-selected="false" title="Plan your day in time blocks"><i class="ph ph-calendar-dots" aria-hidden="true"></i>Day</button>
       </div>
-      <button class="btn primary edit-only" id="btn-new" type="button" aria-keyshortcuts="N"><i class="ph ph-plus" aria-hidden="true"></i>New task</button>
+      <button class="btn primary edit-only board-only" id="btn-new" type="button" aria-keyshortcuts="N"><i class="ph ph-plus" aria-hidden="true"></i>New task</button>
     </div>
   </header>
 
@@ -703,6 +847,58 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
 
   <div id="banner"></div>
   <main id="view"><p class="loading">Loading board…</p></main>
+  <section class="planner" id="planner" aria-label="Day plan">
+    <div class="pl-bar">
+      <div class="tb-datenav">
+        <button class="icon-btn" id="tb-prev" type="button" aria-label="Previous day" title="Previous day (←)" aria-keyshortcuts="ArrowLeft"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+        <h2 id="tb-date" aria-live="polite">Today</h2>
+        <button class="icon-btn" id="tb-next" type="button" aria-label="Next day" title="Next day (→)" aria-keyshortcuts="ArrowRight"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+        <span class="tb-rel" id="tb-rel"></span>
+        <button class="btn sm" id="tb-today" type="button" aria-keyshortcuts="T">Today</button>
+        <button class="icon-btn" id="tb-cal" type="button" aria-label="Pick a date" title="Pick a date"><i class="ph ph-calendar-blank" aria-hidden="true"></i></button>
+        <input class="tb-pick" id="tb-pick" type="date" tabindex="-1" aria-hidden="true">
+      </div>
+      <span class="sp"></span>
+      <button class="icon-btn" id="tb-keys" type="button" aria-label="Day view keyboard shortcuts" title="Keyboard shortcuts (?)" aria-keyshortcuts="?"><i class="ph ph-keyboard" aria-hidden="true"></i></button>
+      <button class="icon-btn" id="tb-settings" type="button" aria-label="Day view settings" title="Day view settings"><i class="ph ph-gear-six" aria-hidden="true"></i></button>
+      <button class="btn" id="tb-backup" type="button" title="Back up or restore your day plans"><i class="ph ph-floppy-disk" aria-hidden="true"></i>Plans</button>
+      <button class="btn" id="tb-panel-btn" type="button" aria-pressed="true" title="Show or hide the tasks and inbox panel"><i class="ph ph-sidebar-simple" aria-hidden="true"></i>Panel</button>
+      <button class="btn primary" id="tb-new" type="button" aria-keyshortcuts="N"><i class="ph ph-plus" aria-hidden="true"></i>New block</button>
+    </div>
+    <div class="tb-main">
+      <div class="tb-daycol">
+        <textarea class="tb-note" id="tb-note" rows="1" placeholder="Day note: intentions, top three for today…" aria-label="Day note"></textarea>
+        <div class="tb-scroll" id="tb-scroll">
+          <div class="tb-grid" id="tb-grid">
+            <div class="tb-hours" id="tb-hours" aria-hidden="true"></div>
+            <div class="tb-col" id="tb-col" role="region" aria-label="Timeline. Drag on empty time to draw a block."><p class="loading">Loading your day…</p></div>
+          </div>
+        </div>
+      </div>
+      <aside class="tb-panel" id="tb-panel" aria-label="Tasks and inbox">
+        <div class="seg tb-ptabs" role="tablist" aria-label="Panel">
+          <button class="seg-opt" role="tab" type="button" data-ptab="tasks" aria-selected="true"><i class="ph ph-kanban" aria-hidden="true"></i>Tasks</button>
+          <button class="seg-opt" role="tab" type="button" data-ptab="inbox" aria-selected="false"><i class="ph ph-tray" aria-hidden="true"></i>Inbox</button>
+        </div>
+        <div class="tb-pane" id="tp-tasks" role="tabpanel">
+          <div class="tb-tk-flt">
+            <label class="inp search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="tp-q" type="search" placeholder="Search this board's tasks" aria-label="Search tasks" aria-keyshortcuts="/"></label>
+            <select class="inp" id="tp-who" aria-label="Assignee"></select>
+            <button class="btn tog" id="tp-done" type="button" aria-pressed="true" title="Hide tasks in a done stage">Hide done</button>
+          </div>
+          <div id="tp-list"></div>
+          <p class="tb-panel-foot">Drag a task onto the timeline, or press <b>Block</b> to put it at the next free time. Click a task to open its card.</p>
+        </div>
+        <div class="tb-pane" id="tp-inbox" role="tabpanel" hidden>
+          <form class="tb-ib-form" id="ib-form"><input class="inp" id="ib-add" type="text" maxlength="300" placeholder="Add a task to reuse…" aria-label="Add to inbox"><button class="btn" type="submit"><i class="ph ph-plus" aria-hidden="true"></i>Add</button></form>
+          <div id="ib-list"></div>
+          <button class="more" id="ib-done-toggle" type="button" hidden></button>
+          <div id="ib-done" hidden></div>
+          <p class="tb-panel-foot">For things that are not on the board, such as email triage or a weekly meeting. Drag an item onto the timeline, or press <b>Block</b>.</p>
+        </div>
+      </aside>
+    </div>
+  </section>
 </div>
 
 <div class="overlay" id="overlay" hidden>
@@ -714,6 +910,219 @@ body.touch-dragging{-webkit-user-select:none;user-select:none;overscroll-behavio
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+<script id="tb-core">
+/* =====================================================================================
+   TIME BLOCKER CORE: pure logic, no DOM or storage. Node's test runner loads this block
+   straight from the HTML (tests/time-blocker.test.js), so keep it free of browser APIs.
+   ===================================================================================== */
+var TBCore=(function(){
+'use strict';
+
+/* ---------- helpers (shared with board) ----------
+   Copied byte-identical from lab-board.html so a merge is mechanical. Deliberate differences: none. */
+var PRIORITIES=[{key:'critical',label:'Critical',short:'P1'},{key:'high',label:'High',short:'P2'},{key:'medium',label:'Medium',short:'P3'},{key:'low',label:'Low',short:'P4'}];
+// 12 colors on one shared lightness (OKLCH L≈0.74), so tints, chips and bars read evenly in light and dark.
+var PALETTE=['#5fc4b4','#e3946a','#a693f2','#e2809f','#6ea8f2','#c8b45a','#8fc46a','#d98ad6','#6cc0d8','#e6767a','#9aa3c4','#b99a7a'];
+// Boards made with the earlier palette move to the re-tuned color of the same family.
+var RETUNE={'#0e9f8e':'#5fc4b4','#e0662b':'#e3946a','#7a5af8':'#a693f2','#d63b6f':'#e2809f','#2d7ff9':'#6ea8f2','#b8860b':'#c8b45a','#4c9f2f':'#8fc46a','#6b7a8c':'#9aa3c4'};
+var NO_PROJ='#9aa3c4';
+function retune(c){return RETUNE[String(c).toLowerCase()]||c}
+var MAX_CUSTOM=16;
+var DAY=86400000, MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function p2(n){return String(n).padStart(2,'0')}
+function uid(p){return p+Math.random().toString(36).slice(2,9)}
+function isoLocal(d){return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())}
+function toDay(s){var a=s.split('-').map(Number);return Math.round(Date.UTC(a[0],a[1]-1,a[2])/DAY)}
+// Real calendar dates in a sane range only: rejects 2026-02-30, 0000-00-00 and 5-digit years.
+var MIN_DATE='1970-01-01', MAX_DATE='2199-12-31';
+function validDate(s){return typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&s>=MIN_DATE&&s<=MAX_DATE&&fromDay(toDay(s))===s}
+function clip(s,n){s=String(s==null?'':s);return s.length>n?s.slice(0,n):s}
+function cleanName(s){return String(s||'').replace(/\s+/g,' ').trim()}
+function has(o,k){return Object.prototype.hasOwnProperty.call(o,k)}
+function fromDay(n){var d=new Date(n*DAY);return d.getUTCFullYear()+'-'+p2(d.getUTCMonth()+1)+'-'+p2(d.getUTCDate())}
+var HEX=/^#[0-9a-f]{6}$/i;
+function isObj(x){return !!x&&typeof x==='object'&&!Array.isArray(x)}
+function cleanColors(a){var out=[];(Array.isArray(a)?a:[]).forEach(function(c){if(typeof c==='string'&&HEX.test(c)){c=c.toLowerCase();if(out.indexOf(c)<0)out.push(c)}});return out.slice(0,MAX_CUSTOM)}
+function canon(x){return Array.isArray(x)?'['+x.map(canon).join(',')+']':x&&typeof x==='object'?'{'+Object.keys(x).sort().map(function(k){return JSON.stringify(k)+':'+canon(x[k])}).join(',')+'}':JSON.stringify(x===undefined?null:x)}
+function clone(x){return JSON.parse(JSON.stringify(x))}
+
+/* ---------- time math ----------
+   Times are local wall-clock minutes from midnight (0–1440), never timestamps, so a daylight-saving change
+   cannot move a block. Dates are local YYYY-MM-DD strings. */
+var DAY_MIN=1440, SNAPS=[5,10,15,30], GRID=5;
+function clampMin(m){return Math.max(0,Math.min(DAY_MIN,Math.round(m)))}
+// mode: 'round' (default), 'floor' or 'ceil'.
+function snapMin(m,snap,mode){snap=snap||15;var f=mode==='floor'?Math.floor:mode==='ceil'?Math.ceil:Math.round;return clampMin(f(m/snap)*snap)}
+function fmtHM(m){m=clampMin(m);return p2(Math.floor(m/60))+':'+p2(m%60)}
+// "9:30", "09:30" and "24:00" (end of day); anything else is null.
+function parseHM(s){var r=/^(\d{1,2})[:.h]?(\d{2})$/.exec(String(s==null?'':s).trim());if(!r)return null;var h=+r[1],mi=+r[2];if(mi>59||h>24||(h===24&&mi))return null;return h*60+mi}
+function fmtDur(n){n=Math.max(0,Math.round(n));var h=Math.floor(n/60),m=n%60;return h?h+' h'+(m?' '+m+' min':''):m+' min'}
+function fmtHours(n){return (Math.round(n/6)/10).toFixed(1)+' h'}
+// Fits a range into the day: whole minutes inside 0–1440, start before end, at least minLen long.
+function fixRange(start,end,minLen){
+  minLen=Math.max(1,minLen||GRID);
+  var s=clampMin(start),e=clampMin(end);if(e<s){var t=s;s=e;e=t}
+  if(e-s<minLen){e=s+minLen;if(e>DAY_MIN){e=DAY_MIN;s=DAY_MIN-minLen}}
+  return {start:s,end:e};
+}
+function overlaps(a,b){return a.start<b.end&&b.start<a.end}
+/* Overlap layout, like a calendar. Blocks that overlap, directly or through a chain, form a cluster. Each block
+   takes the first column whose last block has ended, and every block in a cluster gets the cluster's column
+   count, so they sit side by side at equal width. Returns {id: {col, cols, overlap}}. */
+function layoutBlocks(blocks){
+  var list=blocks.slice().sort(function(a,b){return a.start-b.start||b.end-a.end||(a.id<b.id?-1:a.id>b.id?1:0)});
+  var out={},cluster=[],cols=[],clusterEnd=-1;
+  function flush(){cluster.forEach(function(b){out[b.id].cols=cols.length});cluster=[];cols=[];clusterEnd=-1}
+  list.forEach(function(b){
+    if(cluster.length&&b.start>=clusterEnd)flush();
+    var c=-1;for(var i=0;i<cols.length;i++)if(cols[i]<=b.start){c=i;break}
+    if(c<0){c=cols.length;cols.push(b.end)}else cols[c]=b.end;
+    out[b.id]={col:c,cols:1,overlap:false};cluster.push(b);clusterEnd=Math.max(clusterEnd,b.end);
+  });
+  flush();
+  for(var i=0;i<list.length;i++)for(var j=i+1;j<list.length&&list[j].start<list[i].end;j++){out[list[i].id].overlap=true;out[list[j].id].overlap=true}
+  return out;
+}
+// First start at or after `from` where a block of `len` minutes fits before `limit` without overlapping; or null.
+function nextFreeSlot(blocks,from,len,limit){
+  limit=limit==null?DAY_MIN:limit;
+  var t=clampMin(from),list=blocks.slice().sort(function(a,b){return a.start-b.start});
+  for(var i=0;i<list.length;i++){var b=list[i];if(b.end<=t)continue;if(b.start>=t+len)break;t=Math.max(t,b.end)}
+  return t+len<=limit?t:null;
+}
+// Header numbers for a day. Focus time counts blocks with a board or inbox focus; skipped blocks are not planned.
+function dayStats(day){
+  var bl=day&&day.blocks?day.blocks:[],planned=0,focus=0,done=0;
+  bl.forEach(function(b){var d=b.end-b.start;if(b.status!=='skipped')planned+=d;if(b.status!=='skipped'&&(b.focus.kind==='board'||b.focus.kind==='inbox'))focus+=d;if(b.status==='done')done++});
+  return {planned:planned,focus:focus,done:done,total:bl.length};
+}
+
+/* ---------- time blocker state ---------- */
+var KINDS=['adhoc','inbox','board','none'],STATUSES=['planned','active','done','partial','skipped'],SOURCES=['auto','folder','browser','snapshot'];
+function defaultSettings(){return {dayStart:420,dayEnd:1140,snap:15,defaultLen:60,weekStartsOn:1,notify:false,boardSource:'auto',defaultBoardId:'main'}}
+function defaultState(){return {version:1,meta:{title:'Time Blocker',updatedAt:'',lastBackupAt:'',customColors:[]},settings:defaultSettings(),days:{},inbox:[],templates:[],boardCache:{}}}
+function isoStr(s){return typeof s==='string'&&s.length<=40&&!isNaN(Date.parse(s))?s:''}
+function intIn(v,lo,hi){var n=Math.round(Number(v));return isFinite(n)&&n>=lo&&n<=hi?n:null}
+function normSettings(x){
+  var d=defaultSettings();if(!isObj(x))return d;
+  var ds=intIn(x.dayStart,0,1380),de=intIn(x.dayEnd,60,1440);
+  if(ds!=null)d.dayStart=Math.floor(ds/60)*60;
+  if(de!=null)d.dayEnd=Math.ceil(de/60)*60;
+  if(d.dayEnd<=d.dayStart){d.dayEnd=Math.min(DAY_MIN,d.dayStart+60)}
+  if(SNAPS.indexOf(Number(x.snap))>=0)d.snap=Number(x.snap);
+  var dl=intIn(x.defaultLen,5,720);if(dl!=null)d.defaultLen=Math.max(d.snap,Math.round(dl/5)*5);
+  if(x.weekStartsOn===0||x.weekStartsOn===1)d.weekStartsOn=x.weekStartsOn;
+  d.notify=!!x.notify;
+  if(SOURCES.indexOf(x.boardSource)>=0)d.boardSource=x.boardSource;
+  if(typeof x.defaultBoardId==='string'&&x.defaultBoardId)d.defaultBoardId=clip(x.defaultBoardId,120);
+  return d;
+}
+/* ---------- taskref (shared) ----------
+   A block that works on a board card keeps a snapshot of the card (labboard.taskref/1, docs/board-interchange.md),
+   so it still reads right when the card's board is not open, was deleted, or lives in another browser.
+   linkTarget is the board's own (byte-identical). */
+var TASKREF='labboard.taskref/1';
+function linkTarget(u){u=String(u||'').trim();if(/^https?:\/\/[^\s]+$/i.test(u))return u;if(/^(\\\\|[a-z]:[\\\/]|\/|~\/|smb:\/\/|file:\/\/)/i.test(u)&&!/[\x00-\x1f]/.test(u))return u;return ''}
+function str(v,n){return typeof v==='string'?clip(v,n):''}
+function normTaskRef(x){
+  if(!isObj(x))return null;
+  var id=str(x.taskId,120);if(!id||(x.schema!=null&&x.schema!==TASKREF))return null;
+  var pr=PRIORITIES.some(function(p){return p.key===x.priority})?x.priority:'medium';
+  var start=validDate(x.start)?x.start:'',due=validDate(x.due)?x.due:'';
+  var links=(Array.isArray(x.links)?x.links:[]).filter(isObj).map(function(l){var u=linkTarget(l.url);return u?{name:clip(cleanName(l.name)||u,200),url:clip(u,2000)}:null}).filter(Boolean).slice(0,50);
+  var hex=function(c){return typeof c==='string'&&HEX.test(c)?retune(c.toLowerCase()):''};
+  return {schema:TASKREF,boardId:str(x.boardId,120)||'main',boardTitle:clip(cleanName(x.boardTitle),120),taskId:id,ref:str(x.ref,20),
+    title:clip(cleanName(x.title),300)||'Untitled task',desc:str(x.desc,20000),
+    projectId:str(x.projectId,120),projectName:clip(cleanName(x.projectName),60),projectColor:hex(x.projectColor),
+    stageId:str(x.stageId,120),stageName:clip(cleanName(x.stageName),40),stageDone:!!x.stageDone,
+    priority:pr,assignee:clip(cleanName(x.assignee),60),start:start,due:due,blocked:!!x.blocked,color:hex(x.color),
+    links:links,archived:!!x.archived,pulledAt:isoStr(x.pulledAt),sourceUpdatedAt:isoStr(x.sourceUpdatedAt)};
+}
+// A TaskRef from a board's normalized state. Pure: the same inputs give the same output apart from pulledAt.
+function toTaskRef(board,boardId,task){
+  var p=(board.projects||[]).find(function(x){return x.id===task.projectId})||null;
+  var st=(board.stages||[]).find(function(x){return x.id===task.stageId})||(board.stages||[])[0]||{id:'',name:'',done:false};
+  var links=(task.att||[]).filter(function(a){return a&&a.kind==='link'}).map(function(a){return {name:a.name,url:a.url}});
+  return normTaskRef({schema:TASKREF,boardId:boardId,boardTitle:board.meta&&board.meta.title,taskId:task.id,ref:task.ref,title:task.title,desc:task.desc,
+    projectId:p?p.id:'',projectName:p?p.name:'',projectColor:p?p.color:'',stageId:st.id,stageName:st.name,stageDone:!!st.done,
+    priority:task.priority,assignee:task.assignee,start:task.start,due:task.due,blocked:task.blocked,color:task.color,links:links,archived:!!task.archived,
+    pulledAt:new Date().toISOString(),sourceUpdatedAt:board.meta&&board.meta.updatedAt});
+}
+// The fields a person would notice changing on the card. Equal means the snapshot needs no refresh.
+var REF_FIELDS=['boardTitle','ref','title','desc','projectId','projectName','projectColor','stageId','stageName','stageDone','priority','assignee','start','due','blocked','color','links','archived'];
+function sameRef(a,b){if(!a||!b)return a===b;for(var i=0;i<REF_FIELDS.length;i++){var k=REF_FIELDS[i];if(canon(a[k])!==canon(b[k]))return false}return true}
+function normFocus(f){
+  f=isObj(f)?f:{};
+  var o={kind:KINDS.indexOf(f.kind)>=0?f.kind:'adhoc',title:clip(cleanName(f.title),300),notes:clip(f.notes,20000),
+    color:typeof f.color==='string'&&HEX.test(f.color)?retune(f.color.toLowerCase()):'',inboxId:typeof f.inboxId==='string'?clip(f.inboxId,40):'',ref:null};
+  if(o.kind==='board'){o.ref=normTaskRef(f.ref);if(o.ref)o.title=o.ref.title;else o.kind='adhoc'}
+  if(o.kind==='inbox'&&!o.inboxId)o.kind='adhoc';
+  if(o.kind!=='inbox')o.inboxId='';
+  if(o.kind==='adhoc'&&!o.title)o.title='Untitled block';
+  return o;
+}
+// Stored times sit on a 5-minute grid (the finest snap) and are at least 5 minutes long, so changing the
+// snap setting never moves a block; the snap only applies to new edits.
+function normBlock(x,seen){
+  if(!isObj(x))return null;
+  var s=Number(x.start),e=Number(x.end);if(!isFinite(s)||!isFinite(e))return null;
+  var r=fixRange(Math.round(s/GRID)*GRID,Math.round(e/GRID)*GRID,GRID),id=typeof x.id==='string'&&/^b_\w{1,24}$/.test(x.id)?x.id:'';
+  if(!id||seen[id]){do id=uid('b_');while(seen[id])}seen[id]=1;
+  return {id:id,start:r.start,end:r.end,focus:normFocus(x.focus),status:STATUSES.indexOf(x.status)>=0?x.status:'planned',
+    actualStart:isoStr(x.actualStart),actualEnd:isoStr(x.actualEnd),outcome:clip(x.outcome,2000),createdAt:isoStr(x.createdAt)||new Date().toISOString()};
+}
+function normDay(date,x){
+  if(!validDate(date)||!isObj(x))return null;
+  var seen=Object.create(null),bl=(Array.isArray(x.blocks)?x.blocks:[]).map(function(b){return normBlock(b,seen)}).filter(Boolean).slice(0,500);
+  bl.sort(function(a,b){return a.start-b.start||a.end-b.end});
+  var d={date:date,note:clip(x.note,20000),reviewedAt:isoStr(x.reviewedAt),blocks:bl};
+  return d.blocks.length||d.note||d.reviewedAt?d:null;
+}
+function normInbox(a){
+  var seen=Object.create(null),out=[];
+  (Array.isArray(a)?a:[]).forEach(function(x){
+    if(!isObj(x))return;var t=clip(cleanName(x.title),300);if(!t)return;
+    var id=typeof x.id==='string'&&/^i_\w{1,24}$/.test(x.id)?x.id:'';if(!id||seen[id]){do id=uid('i_');while(seen[id])}seen[id]=1;
+    out.push({id:id,title:t,notes:clip(x.notes,20000),color:typeof x.color==='string'&&HEX.test(x.color)?retune(x.color.toLowerCase()):'',createdAt:isoStr(x.createdAt)||new Date().toISOString(),doneAt:isoStr(x.doneAt)});
+  });
+  return out.slice(0,2000);
+}
+function normTemplates(a){
+  var seen=Object.create(null),out=[];
+  (Array.isArray(a)?a:[]).forEach(function(x){
+    if(!isObj(x))return;
+    var id=typeof x.id==='string'&&/^tp_\w{1,24}$/.test(x.id)?x.id:'';if(!id||seen[id]){do id=uid('tp_');while(seen[id])}seen[id]=1;
+    var bs=Object.create(null),bl=(Array.isArray(x.blocks)?x.blocks:[]).map(function(b){var n=normBlock(b,bs);return n&&{start:n.start,end:n.end,focus:n.focus}}).filter(Boolean).slice(0,200);
+    out.push({id:id,name:clip(cleanName(x.name),80)||'Template',blocks:bl});
+  });
+  return out.slice(0,200);
+}
+// Lenient: drops what cannot be used and caps lengths. Throws only when nothing here is a time blocker.
+function normalize(raw){
+  if(!isObj(raw))throw new Error('This file is not a time blocker backup.');
+  if(Array.isArray(raw.stages)&&Array.isArray(raw.tasks)&&!isObj(raw.days))throw new Error('This is a Lab Task Board backup, not a time blocker backup. Restore it in the board.');
+  if(!isObj(raw.days)&&!Array.isArray(raw.inbox)&&!isObj(raw.settings))throw new Error('This file is not a time blocker backup.');
+  var s=defaultState(),m=isObj(raw.meta)?raw.meta:{};
+  s.meta={title:clip(cleanName(m.title),120)||'Time Blocker',updatedAt:isoStr(m.updatedAt),lastBackupAt:isoStr(m.lastBackupAt),customColors:cleanColors(m.customColors)};
+  s.settings=normSettings(raw.settings);
+  var days=isObj(raw.days)?raw.days:{};
+  Object.keys(days).sort().forEach(function(k){var d=normDay(k,days[k]);if(d)s.days[k]=d});
+  s.inbox=normInbox(raw.inbox);
+  s.templates=normTemplates(raw.templates);
+  // Board snapshots are filled and checked in Phase 2; kept as they are until then.
+  if(isObj(raw.boardCache))Object.keys(raw.boardCache).forEach(function(k){if(isObj(raw.boardCache[k]))s.boardCache[clip(k,200)]=clone(raw.boardCache[k])});
+  return s;
+}
+
+return {PRIORITIES:PRIORITIES,PALETTE:PALETTE,NO_PROJ:NO_PROJ,DAY:DAY,MONTHS:MONTHS,DAY_MIN:DAY_MIN,SNAPS:SNAPS,GRID:GRID,HEX:HEX,
+  retune:retune,esc:esc,p2:p2,uid:uid,isoLocal:isoLocal,toDay:toDay,fromDay:fromDay,validDate:validDate,clip:clip,cleanName:cleanName,has:has,isObj:isObj,cleanColors:cleanColors,canon:canon,clone:clone,
+  clampMin:clampMin,snapMin:snapMin,fmtHM:fmtHM,parseHM:parseHM,fmtDur:fmtDur,fmtHours:fmtHours,fixRange:fixRange,overlaps:overlaps,layoutBlocks:layoutBlocks,nextFreeSlot:nextFreeSlot,dayStats:dayStats,
+  defaultSettings:defaultSettings,defaultState:defaultState,normFocus:normFocus,normBlock:normBlock,normalize:normalize,
+  TASKREF:TASKREF,linkTarget:linkTarget,normTaskRef:normTaskRef,toTaskRef:toTaskRef,sameRef:sameRef};
+})();
+if(typeof module!=='undefined')module.exports=TBCore;
+</script>
 <script>
 function buildSample(todayISO){
   var DAY=86400000, p2=function(n){return String(n).padStart(2,'0')};
@@ -817,7 +1226,7 @@ function filtering(){var f=ui.f;return !!(f.project||f.assignee||f.q||f.overdue|
 var ui=loadPrefs();
 function loadPrefs(){
   var d={view:'board',groupBy:'priority',zoom:'months',collapsed:{},expanded:{},colW:{},byBoard:{},open:[],active:'main',abPaused:{},f:noFilters()};
-  try{var r=JSON.parse(localStorage.getItem(PREF_KEY)||'null'); if(r){d.view=r.view==='timeline'?'timeline':'board'; d.groupBy=r.groupBy||d.groupBy;if(ZOOMS[r.zoom])d.zoom=r.zoom;if(isObj(r.abPaused))d.abPaused=r.abPaused;d.abDontAsk=!!r.abDontAsk;d.abNoticeSeen=!!r.abNoticeSeen;
+  try{var r=JSON.parse(localStorage.getItem(PREF_KEY)||'null'); if(r){d.view=r.view==='timeline'||r.view==='day'?r.view:'board'; d.groupBy=r.groupBy||d.groupBy;if(ZOOMS[r.zoom])d.zoom=r.zoom;if(isObj(r.abPaused))d.abPaused=r.abPaused;d.abDontAsk=!!r.abDontAsk;d.abNoticeSeen=!!r.abNoticeSeen;
     // Column widths, collapsed lanes and lane order are kept per board; older prefs belong to the first board.
     var bb=isObj(r.byBoard)?r.byBoard:{main:{colW:r.colW,collapsed:r.collapsed}};
     Object.keys(bb).forEach(function(id){var x=isObj(bb[id])?bb[id]:{},cw={};
@@ -1595,7 +2004,7 @@ function syncChrome(){
   syncRegistryTitle(title);renderTabs();
   if(!$('#title-in')){$('#title-text').textContent=title;$('#title-btn').setAttribute('aria-label','Board title: '+title+'. Click to rename.')}
   $$('.tabs button').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.view===ui.view))});
-  document.body.classList.toggle('v-timeline',ui.view==='timeline');
+  document.body.classList.toggle('v-timeline',ui.view==='timeline');document.body.classList.toggle('v-day',ui.view==='day');
   $$('#tl-zoom [data-zoom]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.zoom===ui.zoom))});
   $('#view').classList.toggle('edge-cards',state.meta.cardStyle==='edge');
   $('#grp').value=ui.groupBy;
@@ -1690,6 +2099,7 @@ function cardHtml(t){
     +(di?'<span class="badge '+di.cls+'" title="Deadline '+esc(t.due||'none')+'">'+esc(di.txt)+'</span>':'')
     +(t.blocked&&!done?'<span class="badge blk">'+ic('prohibit')+'Blocked</span>':'')
     +(t.att?'<span class="att-n" title="'+t.att.length+' attachment'+(t.att.length===1?'':'s')+'">'+ic('paperclip')+t.att.length+'</span>':'')
+    +Planner.cardBadge(t)
     +whoHtml(t)
     +'</div></article>';
 }
@@ -1914,7 +2324,8 @@ function render(){
   if(!state){return}
   if(loaded&&ab.board!==curBoard){ab.board=curBoard;setTimeout(abInit,300)}
   syncChrome();
-  if(ui.view==='timeline')renderTimeline();else renderBoard();
+  if(ui.view==='timeline')renderTimeline();else if(ui.view==='day')Planner.render();else renderBoard();
+  if(ui.view!=='day')Planner.syncFromBoard();
   attTrack();
 }
 
@@ -2054,8 +2465,11 @@ function openTask(id,preset){
         +'<div class="cp-row"><button class="btn sm" type="button" data-m="pick" data-ctx="task" data-c="">Use project color</button></div>'
         +palHtml('task',color)+hexHtml('task',color)+'</div></div></div>'
     +'</div></div></fieldset></form>';
-  var foot=readOnly?'<span class="sp"></span><button class="btn" type="button" data-close>Close</button>'
-    :(ex?'<button class="btn danger text" type="button" data-m="delete">'+ic('trash')+'Delete</button>':'')+(ex&&isDone(ex)?'<button class="btn" type="button" data-m="archive" title="Take it off the board but keep it">'+ic('archive')+'Archive</button>':'')
+  // Plan time: a block for this card in the Day view (plans are personal, so viewers of a shared board can plan too).
+  var pl=ex&&!ex.archived?Planner.taskPlanned(ex.id):null;
+  var planBtn=ex&&!ex.archived&&Planner.ready()?'<button class="btn" type="button" data-m="plan" title="'+(pl?esc(Planner.fmtDur(pl.min))+' planned from today in '+pl.n+' block'+(pl.n===1?'':'s')+'. ':'')+'Add a time block for this task in the Day view">'+ic('calendar-plus')+'Plan time'+(pl?'<span class="n">'+esc(Planner.fmtDur(pl.min))+'</span>':'')+'</button>':'';
+  var foot=readOnly?planBtn+'<span class="sp"></span><button class="btn" type="button" data-close>Close</button>'
+    :(ex?'<button class="btn danger text" type="button" data-m="delete">'+ic('trash')+'Delete</button>':'')+(ex&&isDone(ex)?'<button class="btn" type="button" data-m="archive" title="Take it off the board but keep it">'+ic('archive')+'Archive</button>':'')+planBtn
       +'<span class="sp"></span><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-m="save">Save task<span class="kbd">'+(IS_MAC?'⌘↵':'Ctrl↵')+'</span></button>';
   var created=ex&&ex.createdAt&&!isNaN(Date.parse(ex.createdAt))?'Created '+fmtShort(isoLocal(new Date(ex.createdAt))):'';
   var armed=false;
@@ -2093,6 +2507,8 @@ function openTask(id,preset){
     action:function(name,btn){
       if(actl.action(name,btn))return;
       if(name==='save'){save();return}
+      // Unsaved edits are saved first, so planning never loses them.
+      if(name==='plan'){var tid2=ex.id;if(!readOnly&&formSnap()!==cur.snap){if(!save())return}else closeModal();if(!$('#overlay').hidden)closeModal();Planner.planTask(tid2);return}
       if(name==='cp-toggle'){cpOpen=!cpOpen;$('#task-cp').hidden=!cpOpen;paintColor();return}
       if(name==='archive'){if(save()){var at=state.tasks.find(function(x){return x.id===ex.id});if(at)archiveTasks([at])}return}
       if(name==='pick'){color=btn.dataset.c||'';syncPick('task',color);paintColor();return}
@@ -3051,6 +3467,8 @@ async function abWrite(){
     ab.lastAt=Date.now();ab.state='on';ab.err='';try{localStorage.setItem(abTimeKey(),String(ab.lastAt))}catch(e){}
   }catch(e){abFail(e)}
   ab.writing=false;syncAbChip();
+  // The day plan rides along in the same folder (it writes only when it has changed).
+  if(ab.dir&&ab.state==='on')Planner.abWrite();
   var last=Math.max(state.meta.lastBackupAt?Date.parse(state.meta.lastBackupAt):0,ab.state==='on'?ab.lastAt:0);
   $('#btn-backup').classList.toggle('stale',!last||(Date.now()-last)>7*DAY);
   if(ab.again){ab.again=false;abWrite()}
@@ -3290,6 +3708,745 @@ function askPersist(){
   try{if(storage==='local'&&navigator.storage&&navigator.storage.persist&&!/firefox/i.test(navigator.userAgent))navigator.storage.persisted().then(function(p){if(!p)navigator.storage.persist()}).catch(function(){})}catch(e){}
 }
 
+/* ---------- day planner: the Day view (merged in from time-blocker.html) ----------
+   A personal plan of time blocks for each day. A block works on a card from the board (a TaskRef snapshot,
+   labboard.taskref/1, kept fresh while that board is open), an inbox item, a free-text task, or nothing.
+   The plan belongs to this browser and the person using it, not to a board: it is never part of a board's
+   backup or of a shared board. It is saved under its own key ("planner") in the board's database, and as
+   _time-blocker.json in the board's backup folder while automatic backup to a folder is on.
+   Pure logic (time math, layout, normalizers, TaskRef) is TBCore, in <script id="tb-core"> above. */
+var Planner=(function(){
+var C=window.TBCore;
+var fmtHM=C.fmtHM,parseHM=C.parseHM,fmtDur=C.fmtDur,fmtHours=C.fmtHours,snapMin=C.snapMin,fixRange=C.fixRange;
+var PKEY='planner',PLOCAL='labboard.planner.v1',PPREF='labboard.planner.prefs.v1',PPING='labboard.planner.ping',PFILE='_time-blocker.json';
+var HOUR_PX=64,PPM=HOUR_PX/60,DUR_CHIPS=[15,30,45,60,90,120];
+var plan=null,ready=false,pdb=null,rev=0;
+var saveT=null,saving=false,againSave=false;
+var viewDate=today(),selectedId=null,focusAfter=null,drag=null,range={start:420,end:1140};
+var pui=loadPPrefs();
+function today(){return isoLocal(new Date())}
+function nowMin(){var d=new Date();return d.getHours()*60+d.getMinutes()}
+function loadPPrefs(){
+  var d={panel:true,tab:'tasks',showDone:false,hideDone:true,who:''};
+  try{var r=JSON.parse(localStorage.getItem(PPREF)||'null');if(isObj(r)){d.panel=r.panel!==false;d.tab=r.tab==='inbox'?'inbox':'tasks';d.showDone=!!r.showDone;d.hideDone=r.hideDone!==false;d.who=typeof r.who==='string'?r.who:''}}catch(e){}
+  return d;
+}
+function savePPrefs(){try{localStorage.setItem(PPREF,JSON.stringify(pui))}catch(e){}}
+
+/* plan helpers */
+function dayOf(date){return plan.days[date]||null}
+function dayFor(date){return plan.days[date]||(plan.days[date]={date:date,note:'',reviewedAt:'',blocks:[]})}
+function blocksOf(date){var d=plan&&dayOf(date);return d?d.blocks:[]}
+function findBlock(id){var bl=blocksOf(viewDate);for(var i=0;i<bl.length;i++)if(bl[i].id===id)return bl[i];return null}
+function inboxItem(id){return plan.inbox.find(function(x){return x.id===id})||null}
+function snapOf(){return plan.settings.snap}
+function hasData(){return !!(plan&&(Object.keys(plan.days).length||plan.inbox.length))}
+function tidyDays(){Object.keys(plan.days).forEach(function(k){var d=plan.days[k];d.blocks.sort(function(a,b){return a.start-b.start||a.end-b.end});if(!d.blocks.length&&!d.note&&!d.reviewedAt)delete plan.days[k]})}
+
+/* board cards: live from the open board, otherwise the block's snapshot */
+function boardReady(){return !!(state&&loaded)}
+function liveTask(ref){
+  if(!ref||!boardReady()||ref.boardId!==curBoard)return undefined;   // undefined: that board is not open, so unknown
+  return state.tasks.find(function(t){return t.id===ref.taskId})||null;  // null: gone from the open board
+}
+function refFor(t){return C.toTaskRef(state,curBoard,t)}
+function doneStage(){return state.stages.find(function(s){return s.done})||null}
+function blockColor(b){
+  var f=b.focus;if(f.color)return f.color;
+  if(f.kind==='board'&&f.ref){var t=liveTask(f.ref);if(t)return cardColor(t);return f.ref.color||f.ref.projectColor||NO_PROJ}
+  if(f.kind==='inbox'){var it=inboxItem(f.inboxId);if(it&&it.color)return it.color}
+  if(f.kind==='none')return NO_PROJ;
+  return '';
+}
+function blockTitle(b){
+  var f=b.focus;
+  if(f.kind==='board'&&f.ref){var t=liveTask(f.ref);return t?t.title:f.ref.title}
+  if(f.kind==='inbox'){var it=inboxItem(f.inboxId);return it?it.title:f.title||'Inbox item'}
+  if(f.kind==='none')return f.title||'Unlabeled';
+  return f.title||'Untitled block';
+}
+// Keeps the snapshots of the open board's cards current, so they read right later when that board is closed.
+var syncKey='';
+function syncFromBoard(){
+  if(!plan||!boardReady())return;
+  var key=curBoard+'|'+state.meta.updatedAt+'|'+state.tasks.length+'|'+rev;if(key===syncKey)return;syncKey=key;
+  var byId=Object.create(null),changed=false;state.tasks.forEach(function(t){byId[t.id]=t});
+  Object.keys(plan.days).forEach(function(k){plan.days[k].blocks.forEach(function(b){
+    var r=b.focus.ref;if(b.focus.kind!=='board'||!r||r.boardId!==curBoard)return;
+    var t=byId[r.taskId];if(!t)return;
+    var nr=refFor(t);if(!C.sameRef(r,nr)){b.focus.ref=nr;b.focus.title=nr.title;changed=true}
+  })});
+  if(changed){plan.meta.updatedAt=new Date().toISOString();scheduleSave();abSchedule()}
+}
+
+/* ---------- persistence ---------- */
+function pCommit(){rev++;plan.meta.updatedAt=new Date().toISOString();tidyDays();renderIfDay();scheduleSave();abSchedule()}
+function renderIfDay(){if(boardReady())render();else if(ui.view==='day')renderDay()}
+function scheduleSave(){clearTimeout(saveT);saveT=setTimeout(flushPlan,350)}
+async function flushPlan(){
+  saveT=null;if(!plan)return;
+  if(saving){againSave=true;return}
+  saving=true;var json=JSON.stringify(plan);
+  try{if(pdb)await idbTx('readwrite',function(s){return s.put(json,PKEY)},pdb);else localStorage.setItem(PLOCAL,json);pPing()}
+  catch(e){toast('Your day plan could not be saved in this browser. Download a backup of your plans (Day view → Plans).',8000)}
+  saving=false;if(againSave){againSave=false;flushPlan()}
+}
+async function readPlan(){
+  var raw=null;
+  try{if(pdb)raw=await idbTx('readonly',function(s){return s.get(PKEY)},pdb)}catch(e){}
+  if(!raw)try{raw=localStorage.getItem(PLOCAL)}catch(e){}
+  return raw;
+}
+// Plans made in the stand-alone time-blocker.html in this browser are brought over once. Its database is read
+// without a version, so it is never created here; a database that did not exist is not left behind.
+function readStandalone(){
+  return new Promise(function(res){
+    var r;try{r=indexedDB.open('timeblock')}catch(e){res(null);return}
+    r.onupgradeneeded=function(){try{r.transaction.abort()}catch(e){}};
+    r.onerror=function(e){if(e&&e.preventDefault)e.preventDefault();res(null)};r.onblocked=function(){res(null)};
+    r.onsuccess=function(){var db=r.result;
+      try{if(!db.objectStoreNames.contains('kv')){db.close();res(null);return}
+        var q=db.transaction('kv','readonly').objectStore('kv').get('state');q.onsuccess=function(){db.close();res(typeof q.result==='string'?q.result:null)};q.onerror=function(){db.close();res(null)}}
+      catch(e){try{db.close()}catch(x){}res(null)}};
+  }).then(function(v){if(v)return v;try{return localStorage.getItem('timeblock.data.v1')}catch(e){return null}});
+}
+async function init(){
+  try{pdb=await idbOpen()}catch(e){pdb=null}
+  var raw=await readPlan(),moved=false;
+  if(!raw){var old=await readStandalone();if(old){raw=old;moved=true}}
+  try{plan=raw?C.normalize(JSON.parse(raw)):C.defaultState()}
+  catch(e){plan=C.defaultState();toast('The saved day plan could not be read, so it starts empty. Restore a backup of your plans if you have one.',8000)}
+  plan.meta.title='Day plan';
+  ready=true;
+  if(moved){await flushPlan();setTimeout(function(){toast('Your plans from the time blocker are now in the Day view.',6000)},1200)}
+  syncFromBoard();
+  if(ui.view==='day'){if(boardReady())render();else renderDay();scrollToNow()}
+}
+var TAB_ID=uid('tab_');
+function pPing(){try{localStorage.setItem(PPING,JSON.stringify({tab:TAB_ID,t:Date.now()}))}catch(e){}}
+window.addEventListener('storage',function(e){
+  if(e.key!==PPING||!e.newValue||!ready)return;
+  var m;try{m=JSON.parse(e.newValue)}catch(x){return}
+  if(!m||m.tab===TAB_ID)return;
+  if(saveT||saving)toast('Your day plan was also changed in another tab. That version is shown; check your last edit.',6000);
+  readPlan().then(function(raw){if(!raw)return;try{plan=C.normalize(JSON.parse(raw))}catch(x){return}clearTimeout(saveT);saveT=null;rev++;renderIfDay()});
+});
+window.addEventListener('pagehide',function(){if(saveT){clearTimeout(saveT);saveT=null;flushPlan()}});
+
+/* automatic backup: the plan is written next to the boards in the backup folder, after every change.
+   An empty plan is never written, so a new browser cannot overwrite plans saved there from another one;
+   instead it offers to load them. */
+var pab={dirty:true,timer:null,writing:false,again:false,checked:false};
+function abSchedule(){pab.dirty=true;if(!ab.dir||ab.state!=='on')return;clearTimeout(pab.timer);pab.timer=setTimeout(abWritePlan,1500)}
+async function abWritePlan(){
+  pab.timer=null;
+  if(!plan||!ab.dir||ab.state!=='on')return;
+  if(!pab.checked){pab.checked=true;if(!hasData()){offerFolderPlan();return}}
+  if(!pab.dirty||!hasData())return;
+  if(pab.writing){pab.again=true;return}
+  pab.writing=true;pab.dirty=false;
+  try{
+    // Plans found in the folder that were not loaded here are kept in a dated copy before the first write.
+    if(pab.folderText){var keep=pab.folderText;pab.folderText='';await abWriteTo(await ab.dir.getFileHandle('_time-blocker-before-'+today()+'.json',{create:true}),keep)}
+    var fh=await ab.dir.getFileHandle(PFILE,{create:true});await abWriteTo(fh,JSON.stringify(plan,null,2))}catch(e){pab.dirty=true}
+  pab.writing=false;if(pab.again){pab.again=false;abWritePlan()}
+}
+async function offerFolderPlan(){
+  var txt;try{txt=await (await (await ab.dir.getFileHandle(PFILE)).getFile()).text()}catch(e){return}
+  pab.folderText=txt;
+  var p;try{p=C.normalize(JSON.parse(txt))}catch(e){return}
+  var nb=0;Object.keys(p.days).forEach(function(k){nb+=p.days[k].blocks.length});if(!nb&&!p.inbox.length)return;
+  setTimeout(function(){
+    if(hasData())return;
+    toast('Day plans were found in your backup folder ('+nb+' block'+(nb===1?'':'s')+'). Load them here?',15000,{label:'Load plans',fn:function(){pab.folderText='';plan=p;plan.meta.title='Day plan';pCommit();toast('Plans loaded.')}});
+  },2500);
+}
+function flushBackup(){if(pab.timer){clearTimeout(pab.timer);abWritePlan()}}
+
+/* ---------- render: the day ---------- */
+var WEEKDAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function dateLabel(d){var t=new Date(toDay(d)*DAY),y=t.getUTCFullYear();return WEEKDAYS[t.getUTCDay()]+', '+MONTHS[t.getUTCMonth()]+' '+t.getUTCDate()+(y!==new Date().getFullYear()?' '+y:'')}
+function viewRange(){
+  var s=plan.settings.dayStart,e=plan.settings.dayEnd;
+  blocksOf(viewDate).forEach(function(b){s=Math.min(s,Math.floor(b.start/60)*60);e=Math.max(e,Math.ceil(b.end/60)*60)});
+  if(drag&&drag.cur){s=Math.min(s,Math.floor(drag.cur.start/60)*60);e=Math.max(e,Math.ceil(drag.cur.end/60)*60)}
+  return {start:s,end:e};
+}
+function yOf(m){return (m-range.start)*PPM}
+function minuteAt(clientY){var r=$('#tb-col').getBoundingClientRect();return range.start+(clientY-r.top)/PPM}
+function blockHtml(b,lay){
+  var f=b.focus,col=blockColor(b),title=blockTitle(b),dur=b.end-b.start,short=dur*PPM<44,L=lay||{col:0,cols:1,overlap:false};
+  var st=b.status,stIc=st==='partial'?ic('circle-half'):st==='skipped'?ic('prohibit'):'';
+  var chk='<button class="tb-chk" type="button" tabindex="-1" data-chk="'+esc(b.id)+'" aria-pressed="'+(st==='done')+'" aria-label="'+(st==='done'?'Done. Mark not done':'Mark done')+'" title="'+(st==='done'?'Done. Click to mark not done (X)':'Mark done (X)')+'">'+ic('check')+'</button>';
+  var lead='',flag='';
+  if(f.kind==='inbox')lead=ic('tray');
+  if(f.kind==='board'&&f.ref){
+    var t=liveTask(f.ref);lead='<span class="tb-ref">'+esc(f.ref.ref)+'</span>';
+    if(t===null||(t&&t.archived))flag='<span class="tb-flag warn" title="This card was deleted or archived. The block keeps its last details.">Not on the board</span>';
+    else if(t&&isDone(t))flag='<span class="tb-flag ok">Done on board</span>';
+    else if(t===undefined&&!short)flag='<span class="tb-flag" title="From the board “'+esc(f.ref.boardTitle||'another board')+'”, as of '+esc(f.ref.pulledAt?new Date(f.ref.pulledAt).toLocaleString():'when it was planned')+'">'+esc(f.ref.boardTitle||'Other board')+'</span>';
+  }
+  return '<div class="tb-block st-'+st+' k-'+f.kind+(short?' short':'')+(L.overlap?' overlap':'')+(b.id===selectedId?' sel':'')+'" data-id="'+esc(b.id)+'" tabindex="0" role="button"'
+    +' aria-label="'+esc(fmtHM(b.start)+' to '+fmtHM(b.end)+', '+(f.kind==='board'&&f.ref?f.ref.ref+' ':'')+title+(L.overlap?', overlaps another block':'')+(st!=='planned'?', '+st:''))+'" aria-keyshortcuts="Enter X Delete ArrowUp ArrowDown Shift+ArrowUp Shift+ArrowDown"'
+    +' style="top:'+yOf(b.start)+'px;height:'+Math.max(14,dur*PPM-2)+'px;left:calc('+(L.col/L.cols*100)+'% + 3px);width:calc('+(100/L.cols)+'% - 6px)'+(col?';--pc:'+esc(col):'')+'">'
+    +'<span class="tb-rz top" data-rz="top" aria-hidden="true"></span>'
+    +'<div class="tb-b-head">'+chk+'<span class="tb-b-time">'+fmtHM(b.start)+'–'+fmtHM(b.end)+'</span>'+(short?'':'<span class="tb-b-dur">'+fmtDur(dur)+'</span>')+lead+stIc+flag+(L.overlap?'<span class="tb-ov" title="Overlaps another block">'+ic('warning')+'</span>':'')+'</div>'
+    +'<div class="tb-b-title">'+esc(title)+'</div>'
+    +'<span class="tb-rz bottom" data-rz="bottom" aria-hidden="true"></span></div>';
+}
+function renderTimeline(){
+  range=viewRange();
+  var bl=blocksOf(viewDate),lay=C.layoutBlocks(bl),h='';
+  for(var m=range.start;m<=range.end;m+=60)h+='<span class="tb-hour" style="top:'+yOf(m)+'px">'+fmtHM(m)+'</span>';
+  $('#tb-hours').innerHTML=h;
+  $('#tb-grid').style.height=((range.end-range.start)*PPM)+'px';
+  var col=$('#tb-col');col.style.setProperty('--snap-px',(snapOf()*PPM)+'px');col.style.setProperty('--hour-px',HOUR_PX+'px');
+  var html=bl.map(function(b){return blockHtml(b,lay[b.id])}).join('');
+  if(!bl.length)html+='<div class="tb-empty">'+ic('calendar-plus')+'<span><b>No blocks yet.</b> Drag a task from the panel onto the timeline, or drag on the timeline to draw a block.</span></div>';
+  html+='<div class="tb-now" id="tb-now" hidden><span>'+ic('caret-right')+'</span></div>';
+  col.innerHTML=html;
+  placeNow();
+  if(focusAfter){var f=$('.tb-block[data-id="'+cssEsc(focusAfter)+'"]');focusAfter=null;if(f)f.focus({preventScroll:false})}
+}
+function placeNow(){
+  var n=$('#tb-now');if(!n)return;
+  var m=nowMin(),show=viewDate===today()&&m>=range.start&&m<=range.end;
+  n.hidden=!show;if(show){n.style.top=yOf(m)+'px';n.title='Now, '+fmtHM(m)}
+}
+function scrollToNow(){
+  var sc=$('#tb-scroll');if(!sc||!plan)return;
+  var bl=blocksOf(viewDate),m=viewDate===today()?nowMin():bl.length?bl[0].start:plan.settings.dayStart;
+  sc.scrollTop=Math.max(0,yOf(m)-sc.clientHeight/3);
+}
+function renderBar(){
+  var isToday=viewDate===today(),d=toDay(viewDate)-toDay(today());
+  $('#tb-date').textContent=dateLabel(viewDate);
+  $('#tb-rel').textContent=isToday?'Today':d===1?'Tomorrow':d===-1?'Yesterday':d>0?'In '+d+' days':-d+' days ago';
+  $('#tb-today').hidden=isToday;
+  var s=C.dayStats(dayOf(viewDate));
+  $('#stats').innerHTML='<span><b>'+fmtHours(s.planned)+'</b> planned</span><span>·</span><span><b>'+fmtHours(s.focus)+'</b> on tasks</span><span>·</span><span><b>'+s.done+'/'+s.total+'</b> blocks done</span>';
+  var note=$('#tb-note'),day=dayOf(viewDate),v=day?day.note:'';
+  if(document.activeElement!==note&&note.value!==v){note.value=v;growNote()}
+  document.body.classList.toggle('no-ppanel',!pui.panel);
+  $('#tb-panel-btn').setAttribute('aria-pressed',String(pui.panel));
+}
+function growNote(){var n=$('#tb-note');n.style.height='auto';n.style.height=Math.min(160,n.scrollHeight)+'px'}
+// Blocks on the shown day per task id (current board) and per inbox item.
+function usage(){
+  var m={task:Object.create(null),inbox:Object.create(null)};
+  blocksOf(viewDate).forEach(function(b){var f=b.focus,k=null,map=null;
+    if(f.kind==='board'&&f.ref&&f.ref.boardId===curBoard){map=m.task;k=f.ref.taskId}else if(f.kind==='inbox'){map=m.inbox;k=f.inboxId}
+    if(map){map[k]=map[k]||{n:0,min:0};map[k].n++;map[k].min+=b.end-b.start}});
+  return m;
+}
+function useLine(u){return u?'<small class="use">'+u.n+' block'+(u.n===1?'':'s')+' '+(viewDate===today()?'today':'this day')+', '+fmtDur(u.min)+'</small>':''}
+var TASK_CAP=200;
+function panelTasks(){
+  var q=($('#tp-q').value||'').trim().toLowerCase(),who=pui.who;
+  return state.tasks.filter(function(t){
+    if(t.archived)return false;
+    if(pui.hideDone&&isDone(t))return false;
+    if(who&&(who==='__none'?t.assignee:t.assignee!==who))return false;
+    if(q&&(t.ref+' '+t.title+' '+t.assignee+' '+(projectOf(projKey(t))||{name:''}).name).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  }).sort(function(a,b){
+    // Overdue and soon-due first, then by due date, then priority, then the board's order.
+    var ad=a.due||'9999',bd=b.due||'9999';if(ad!==bd)return ad<bd?-1:1;
+    var pa=PRIORITIES.findIndex(function(p){return p.key===a.priority}),pb=PRIORITIES.findIndex(function(p){return p.key===b.priority});
+    return pa-pb||byOrder(a,b);
+  });
+}
+function renderPanel(){
+  $$('.tb-ptabs [data-ptab]').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.ptab===pui.tab))});
+  $('#tp-tasks').hidden=pui.tab!=='tasks';$('#tp-inbox').hidden=pui.tab!=='inbox';
+  var use=usage();
+  // Tasks of the open board.
+  if(boardReady()){
+    var w=$('#tp-who'),ppl=people();
+    if(pui.who&&pui.who!=='__none'&&ppl.indexOf(pui.who)<0)pui.who='';
+    w.innerHTML='<option value="">Anyone</option>'+ppl.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>'}).join('')+'<option value="__none">Unassigned</option>';w.value=pui.who;
+    $('#tp-done').setAttribute('aria-pressed',String(pui.hideDone));
+    var list=panelTasks(),more=list.length>TASK_CAP;
+    $('#tp-list').innerHTML=list.length?list.slice(0,TASK_CAP).map(function(t){
+      var p=projectOf(projKey(t)),u=use.task[t.id],dn=isDone(t),late=isLate(t);
+      var meta=[t.due?'<span class="'+(late?'late':'')+'">'+(late?'overdue ':'due ')+esc(fmtShort(t.due))+'</span>':'',t.blocked&&!dn?'blocked':'',t.assignee?esc(initials(t.assignee)):'',p?esc(p.name):''].filter(Boolean).join(' · ');
+      return '<div class="tb-tk'+(dn?' done':'')+'" data-tid="'+esc(t.id)+'" draggable="true" style="--pc:'+esc(cardColor(t))+'">'
+        +'<button class="tb-tk-main" type="button" data-act="tb-card" data-tid="'+esc(t.id)+'" title="Open the card"><span class="ref">'+esc(t.ref)+'</span>'+(t.priority==='critical'||t.priority==='high'?'<span class="pri '+t.priority+'">'+(PRIORITIES.find(function(x){return x.key===t.priority}).short)+'</span>':'')+'<span class="t">'+esc(t.title)+'</span>'
+        +(meta?'<small>'+meta+'</small>':'')+useLine(u)+'</button>'
+        +'<button class="btn sm" type="button" data-act="tb-task-block" data-tid="'+esc(t.id)+'" title="Add a block for this task at the next free time">'+ic('plus')+'Block</button></div>';
+    }).join('')+(more?'<p class="hint dim tb-ib-empty">Showing the first '+TASK_CAP+'. Search to find others.</p>':'')
+      :'<p class="hint dim tb-ib-empty">'+(state.tasks.some(function(t){return !t.archived})?'No tasks match. Clear the search or show done tasks.':'This board has no tasks yet. Add some in the Board view.')+'</p>';
+  }
+  // Inbox.
+  var open=plan.inbox.filter(function(x){return !x.doneAt}),done=plan.inbox.filter(function(x){return x.doneAt});
+  var item=function(x){var u=use.inbox[x.id];
+    return '<div class="tb-ib'+(x.doneAt?' done':'')+'" data-id="'+esc(x.id)+'"'+(x.doneAt?'':' draggable="true"')+(x.color?' style="--pc:'+esc(x.color)+'"':'')+'>'
+      +'<button class="tb-ib-chk icon-btn sm" type="button" data-act="tb-ib-done" data-id="'+esc(x.id)+'" aria-pressed="'+!!x.doneAt+'" aria-label="'+(x.doneAt?'Mark not done: ':'Mark done: ')+esc(x.title)+'" title="'+(x.doneAt?'Mark not done':'Mark done')+'">'+ic(x.doneAt?'check-square':'square')+'</button>'
+      +'<button class="tb-ib-main" type="button" data-act="tb-ib-edit" data-id="'+esc(x.id)+'" title="Edit">'+(x.color?'<i class="tb-dot"></i>':'')+'<span class="t">'+esc(x.title)+'</span>'+(x.notes?ic('note'):'')+useLine(u)+'</button>'
+      +(x.doneAt?'':'<button class="btn sm" type="button" data-act="tb-ib-block" data-id="'+esc(x.id)+'" title="Add a block for this at the next free time">'+ic('plus')+'Block</button>')+'</div>'};
+  $('#ib-list').innerHTML=open.length?open.map(item).join(''):'<p class="hint dim tb-ib-empty">Your inbox is empty. Add things you plan often that are not board tasks, like email triage or a weekly meeting.</p>';
+  $('#ib-done-toggle').hidden=!done.length;$('#ib-done-toggle').textContent=(pui.showDone?'Hide':'Show')+' done ('+done.length+')';
+  $('#ib-done').hidden=!pui.showDone||!done.length;$('#ib-done').innerHTML=pui.showDone?done.map(item).join(''):'';
+}
+// Called by the board's render() while the Day view is shown. (Inside this module, render() is the board's.)
+function renderAll(){
+  if(!ready){$('#stats').innerHTML='';return}
+  syncFromBoard();
+  renderDay();
+}
+function renderDay(){if(!ready)return;renderBar();renderTimeline();renderPanel()}
+
+/* ---------- undo: the plan's own snapshots (the board's Undo restores the board) ---------- */
+function snapPlan(){return JSON.stringify(plan)}
+function undoPlan(msg,snap){
+  toast(msg,10000,{label:'Undo',fn:function(){try{plan=C.normalize(JSON.parse(snap))}catch(e){toast('Could not undo');return}pCommit();toast('Undone')}});
+}
+
+/* color choice: the board's palette and custom colors, or none */
+function swatchesHtml(cur){
+  var on=function(c){return String((cur||'')===c)};
+  var sw=function(c){return '<button class="sw" type="button" style="--c:'+c+'" data-m="pick" data-c="'+c+'" aria-pressed="'+on(c)+'" aria-label="Color '+c+'" title="'+c+'"></button>'};
+  var custom=C.cleanColors((plan.meta.customColors||[]).concat(boardReady()?state.meta.customColors||[]:[])).filter(function(c){return PALETTE.indexOf(c)<0});
+  return '<div class="tb-pal" role="group" aria-label="Color"><button class="sw none" type="button" data-m="pick" data-c="" aria-pressed="'+on('')+'" aria-label="No color" title="No color">'+ic('prohibit')+'</button>'
+    +PALETTE.concat(custom).map(sw).join('')
+    +'<label class="sw custom" title="Custom color"><input type="color" class="tb-cin" value="'+esc(cur||'#9184d9')+'" aria-label="Custom color">'+ic('eyedropper')+'</label></div>';
+}
+function rememberColor(c){if(!c||PALETTE.indexOf(c)>=0)return;plan.meta.customColors=C.cleanColors([c].concat(plan.meta.customColors||[]))}
+
+/* ---------- block editor ---------- */
+function taskOptLabel(t){return t.ref+' · '+t.title+(isDone(t)?' (done)':'')}
+function openEditor(b,isNew){
+  if(!ready)return;
+  var d=clone(b),f=d.focus,color=f.color||'',kind=f.kind,ref=f.kind==='board'?f.ref:null;
+  var live=ref?liveTask(ref):undefined;
+  var openItems=plan.inbox.filter(function(x){return !x.doneAt||x.id===f.inboxId});
+  var tasks=boardReady()?state.tasks.filter(function(t){return !t.archived&&(!isDone(t)||(ref&&t.id===ref.taskId))}).sort(byOrder):[];
+  // A new block drawn on the timeline starts as a board task when the board has open tasks.
+  if(isNew&&kind==='adhoc'&&(!f.title||f.title==='Untitled block')){f.title='';if(tasks.length)kind='board'}
+  var seg=function(k,label){return '<label class="seg-opt"><input type="radio" name="ed-kind" value="'+k+'"'+(kind===k?' checked':'')+'>'+label+'</label>'};
+  var refOpt=ref&&!live?'<option value="__ref" selected>'+esc((ref.ref?ref.ref+' · ':'')+ref.title+(ref.boardId!==curBoard?' ('+(ref.boardTitle||'another board')+')':' (no longer on the board)'))+'</option>':'';
+  var body='<form id="ed-form" novalidate><fieldset>'
+    +'<div class="tb-ed-times"><label class="fld"><span>Start</span><input id="ed-start" class="mono" type="text" inputmode="numeric" maxlength="5" value="'+fmtHM(d.start)+'" aria-describedby="ed-dur"></label>'
+    +'<label class="fld"><span>End</span><input id="ed-end" class="mono" type="text" inputmode="numeric" maxlength="5" value="'+fmtHM(d.end)+'" aria-describedby="ed-dur"></label>'
+    +'<span class="tb-ed-dur mono" id="ed-dur"></span></div>'
+    +'<div class="tb-chips" role="group" aria-label="Length">'+DUR_CHIPS.map(function(n){return '<button class="btn sm" type="button" data-m="len" data-n="'+n+'">'+fmtDur(n)+'</button>'}).join('')+'</div>'
+    +'<div class="fld"><span class="lab" id="ed-kind-l">Work on</span><div class="seg" role="radiogroup" aria-labelledby="ed-kind-l">'+seg('board','Board task')+seg('adhoc','Other task')+seg('inbox','Inbox')+seg('none','Nothing')+'</div></div>'
+    +'<div class="tb-kind" data-kind="board">'
+      +((tasks.length||refOpt)?'<label class="inp search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="ed-tq" type="search" placeholder="Search this board\'s tasks" aria-label="Search tasks"></label>'
+        +'<select id="ed-task" size="6" aria-label="Task">'+refOpt+tasks.map(function(t){return '<option value="'+esc(t.id)+'"'+(ref&&live&&t.id===ref.taskId?' selected':'')+'>'+esc(taskOptLabel(t))+'</option>'}).join('')+'</select><div class="tb-tsum" id="ed-tsum"></div>'
+        :'<p class="hint dim">This board has no open tasks. Add tasks in the Board view, or choose Other task.</p>')+'</div>'
+    +'<div class="tb-kind" data-kind="adhoc"><label class="fld"><span>Title</span><input id="ed-title" type="text" maxlength="300" value="'+esc(kind==='adhoc'?f.title:'')+'" placeholder="e.g. Email triage, seminar, lab meeting"></label>'
+      +'<div class="fld"><span class="lab">Color</span>'+swatchesHtml(color)+'</div>'
+      +'<label class="chk"><input type="checkbox" id="ed-save-inbox"> Save to Inbox, to reuse it on other days</label></div>'
+    +'<div class="tb-kind" data-kind="inbox">'+(openItems.length?'<label class="fld"><span>Inbox item</span><select id="ed-inbox">'+openItems.map(function(x){return '<option value="'+esc(x.id)+'"'+(x.id===f.inboxId?' selected':'')+'>'+esc(x.title)+(x.doneAt?' (done)':'')+'</option>'}).join('')+'</select></label>'
+      :'<p class="hint dim">Your inbox is empty. Add items in the panel\'s Inbox tab, or choose Other task and tick “Save to Inbox”.</p>')+'</div>'
+    +'<div class="tb-kind" data-kind="none"><label class="fld"><span>Label (optional)</span><input id="ed-label" type="text" maxlength="300" value="'+esc(kind==='none'?f.title:'')+'" placeholder="e.g. Lunch, buffer, commute"></label></div>'
+    +'<label class="fld"><span>Notes for this block</span><textarea id="ed-notes" rows="3" placeholder="What to get done in this time, links, reminders">'+esc(f.notes)+'</textarea></label>'
+    +'<label class="chk"><input type="checkbox" id="ed-done"'+(d.status==='done'?' checked':'')+'> Done</label>'
+    +'<p class="form-err" id="ed-err" role="alert" hidden></p></fieldset></form>';
+  var foot=(isNew?'':'<button class="btn danger text" type="button" data-m="ed-del">'+ic('trash')+'Delete</button><button class="btn" type="button" data-m="ed-dup">'+ic('copy')+'Duplicate</button>')
+    +'<span class="sp"></span><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-m="ed-save">'+(isNew?'Add block':'Save')+'</button>';
+  function times(){return {s:parseHM($('#ed-start').value),e:parseHM($('#ed-end').value)}}
+  function paintDur(){var t=times();$('#ed-dur').textContent=t.s!=null&&t.e!=null&&t.e>t.s?fmtDur(t.e-t.s):''}
+  function curKind(){return ($('input[name=ed-kind]:checked')||{}).value||'adhoc'}
+  function paintKind(){var k=curKind();$$('.tb-kind').forEach(function(x){x.hidden=x.dataset.kind!==k})}
+  function pickedTask(){var s=$('#ed-task');if(!s||!s.value||s.value==='__ref')return null;return state.tasks.find(function(t){return t.id===s.value})||null}
+  function paintSum(){
+    var el=$('#ed-tsum');if(!el)return;var t=pickedTask(),r=t?refFor(t):($('#ed-task').value==='__ref'?ref:null);
+    if(!r){el.innerHTML='<span class="hint dim" style="margin:0">Pick a task.</span>';return}
+    var pr=PRIORITIES.find(function(p){return p.key===r.priority});
+    el.innerHTML='<div class="row"><b>'+esc(r.ref)+'</b>'+(r.projectName?'<span class="chip" style="--pc:'+esc(r.projectColor||NO_PROJ)+'"><i></i><span>'+esc(r.projectName)+'</span></span>':'')+'<span>'+esc(r.stageName)+'</span><span>'+esc(pr?pr.label:'')+'</span>'+(r.assignee?'<span>'+esc(r.assignee)+'</span>':'')+(r.due?'<span>Due '+esc(fmtShort(r.due))+'</span>':'')+(r.blocked?'<span class="badge blk">Blocked</span>':'')+'</div>'
+      +(t?'<div class="row"><button class="btn sm" type="button" data-m="ed-card">'+ic('arrow-square-out')+'Open card</button></div>'
+        :'<div class="row">'+(ref.boardId!==curBoard?'From “'+esc(ref.boardTitle||'another board')+'”. Open that board to see the card.':'This card is no longer on the board. The block keeps its last details.')+'</div>');
+  }
+  function filterTasks(){
+    var q=($('#ed-tq').value||'').trim().toLowerCase(),sel=$('#ed-task'),first=null;
+    $$('option',sel).forEach(function(o){var show=!q||o.textContent.toLowerCase().indexOf(q)>=0;o.hidden=!show;if(show&&!first)first=o});
+    if(sel.selectedOptions[0]&&sel.selectedOptions[0].hidden&&first){sel.value=first.value;paintSum()}
+  }
+  openModal({title:isNew?'New block':'Edit block',pre:dateLabel(viewDate),body:body,foot:foot,noFocus:true,
+    mount:function(){
+      paintDur();paintKind();paintSum();
+      $('#ed-start').addEventListener('input',paintDur);$('#ed-end').addEventListener('input',paintDur);
+      $$('input[name=ed-kind]').forEach(function(r){r.addEventListener('change',function(){paintKind();var t=$('.tb-kind:not([hidden]) input[type=search],.tb-kind:not([hidden]) input[type=text],.tb-kind:not([hidden]) select');if(t)t.focus()})});
+      // Up and down arrows in a time field step by the snap.
+      ['#ed-start','#ed-end'].forEach(function(sel){$(sel).addEventListener('keydown',function(e){if(e.key!=='ArrowUp'&&e.key!=='ArrowDown')return;e.preventDefault();var v=parseHM(this.value);if(v==null)return;var g=snapOf();v=snapMin(v+(e.key==='ArrowUp'?g:-g),g);this.value=fmtHM(v);paintDur()})});
+      var ci=$('.tb-cin');if(ci)ci.addEventListener('input',function(){color=ci.value.toLowerCase();paintSw()});
+      var ts=$('#ed-task');if(ts){ts.addEventListener('change',paintSum);$('#ed-tq').addEventListener('input',filterTasks);
+        $('#ed-tq').addEventListener('keydown',function(e){if(e.key==='ArrowDown'){e.preventDefault();ts.focus()}})}
+      $('#ed-form').addEventListener('keydown',function(e){if(e.key==='Enter'&&(e.ctrlKey||e.metaKey||e.target.tagName==='INPUT')&&e.target.type!=='checkbox'&&e.target.type!=='radio'){e.preventDefault();save()}});
+      var first=kind==='board'?($('#ed-task')&&!$('#ed-task').value?$('#ed-tq'):$('#ed-start')):kind==='inbox'?$('#ed-inbox'):kind==='none'?$('#ed-label'):$('#ed-title');(first||$('#ed-start')).focus();
+    },
+    action:function(name,btn){
+      if(name==='pick'){color=btn.dataset.c||'';paintSw();return}
+      if(name==='len'){var t=times();if(t.s==null)return;$('#ed-end').value=fmtHM(Math.min(C.DAY_MIN,t.s+(+btn.dataset.n)));paintDur();return}
+      if(name==='ed-save'){save();return}
+      if(name==='ed-del'){deleteBlock(b.id);closeModal();return}
+      if(name==='ed-dup'){if(save(true))duplicateBlock(b.id);return}
+      if(name==='ed-card'){var pt=pickedTask();if(pt){closeModal();openTask(pt.id)}return}
+    }});
+  function paintSw(){$$('.tb-pal .sw[data-m=pick]').forEach(function(s){s.setAttribute('aria-pressed',String((s.dataset.c||'')===color))});var cu=$('.tb-pal .custom');if(cu)cu.classList.toggle('on',!!color&&PALETTE.indexOf(color)<0)}
+  function err(m){var e=$('#ed-err');e.textContent=m;e.hidden=false;return false}
+  function save(keepOpen){
+    var t=times(),g=snapOf();
+    if(t.s==null||t.e==null)return err('Times are written as HH:MM, for example 09:30.');
+    var s=snapMin(t.s,g),e=snapMin(t.e,g);
+    if(e<=s)return err('The end time must be after the start time.');
+    var k=curKind(),focus={kind:k,title:'',notes:$('#ed-notes').value,color:'',inboxId:'',ref:null};
+    if(k==='board'){
+      var sel=$('#ed-task');if(!sel||!sel.value)return err('Pick a task, or choose Other task.');
+      var pt=pickedTask(),r=pt?refFor(pt):ref;if(!r)return err('Pick a task, or choose Other task.');
+      focus.ref=r;focus.title=r.title;
+    }else if(k==='adhoc'){
+      focus.title=cleanName($('#ed-title').value);if(!focus.title){$('#ed-title').focus();return err('Give the block a title.')}
+      focus.color=color;rememberColor(color);
+      // Saved to the inbox: the block then points at the new inbox item.
+      if($('#ed-save-inbox').checked){var it={id:uid('i_'),title:clip(focus.title,300),notes:'',color:color,createdAt:new Date().toISOString(),doneAt:''};plan.inbox.unshift(it);focus={kind:'inbox',title:it.title,notes:focus.notes,color:'',inboxId:it.id,ref:null}}
+    }else if(k==='inbox'){
+      var si=$('#ed-inbox');if(!si)return err('Your inbox is empty. Choose Other task, or add an inbox item first.');
+      var item=inboxItem(si.value);if(!item)return err('That inbox item no longer exists.');
+      focus.inboxId=item.id;focus.title=item.title;
+    }else focus.title=cleanName($('#ed-label').value);
+    var r2=fixRange(s,e,g),snap=snapPlan(),list=dayFor(viewDate).blocks,blk=list.find(function(x){return x.id===b.id});
+    if(!blk){blk=C.normBlock(Object.assign({},b,{start:r2.start,end:r2.end,focus:focus}),{});blk.id=b.id;list.push(blk)}
+    else{blk.start=r2.start;blk.end=r2.end}
+    blk.focus=C.normFocus(focus);
+    if($('#ed-done').checked)blk.status='done';else if(blk.status==='done')blk.status='planned';
+    selectedId=blk.id;focusAfter=blk.id;
+    if(!keepOpen)closeModal();
+    pCommit();
+    var ov=list.filter(function(x){return x!==blk&&C.overlaps(x,blk)}).length;
+    if(isNew)undoPlan('Block added, '+fmtHM(r2.start)+'–'+fmtHM(r2.end)+(ov?'. It overlaps '+ov+' block'+(ov===1?'':'s')+'.':'.'),snap);
+    else if(ov)toast('Saved. It overlaps '+ov+' block'+(ov===1?'':'s')+'.',4000);
+    return true;
+  }
+}
+
+/* ---------- block actions ---------- */
+// Done is a tick on the block. For a card on the open board, ticking also offers to move the card to the
+// board's done stage (one click, with the board's own Undo); nothing on the board changes without that click.
+function toggleDone(id,fromKey){
+  var b=findBlock(id);if(!b)return;
+  b.status=b.status==='done'?'planned':'done';
+  selectedId=b.id;if(fromKey)focusAfter=b.id;
+  pCommit();
+  var t=b.status==='done'&&b.focus.kind==='board'?liveTask(b.focus.ref):null,ds=t&&!readOnly&&!t.archived&&!isDone(t)?doneStage():null;
+  if(ds)toast('Done: '+blockTitle(b)+'.',8000,{label:'Move '+t.ref+' to '+ds.name,fn:function(){moveCardDone(t.id)}});
+  else toast(b.status==='done'?'Done: '+blockTitle(b)+'.':'Marked not done: '+blockTitle(b)+'.',1800);
+}
+function moveCardDone(taskId){
+  var t=state.tasks.find(function(x){return x.id===taskId}),ds=doneStage();if(!t||!ds||readOnly)return;
+  var snap=JSON.stringify(state);applyMove(t.id,ds.id,laneKey(t),null);
+  offerUndo(t.ref+' moved to '+ds.name+' on the board.',snap);
+}
+function newDraft(start,end,focus){
+  var r=fixRange(start,end,snapOf());
+  return {id:uid('b_'),start:r.start,end:r.end,focus:C.normFocus(focus||{kind:'adhoc',title:''}),status:'planned',actualStart:'',actualEnd:'',outcome:'',createdAt:new Date().toISOString()};
+}
+// The next free slot after now (today) or after the start of the shown day.
+function freeStart(len){
+  var g=snapOf(),from=viewDate===today()?snapMin(nowMin(),g,'ceil'):plan.settings.dayStart;
+  var s=C.nextFreeSlot(blocksOf(viewDate),from,len,C.DAY_MIN);
+  return s==null?Math.min(from,C.DAY_MIN-len):s;
+}
+function newBlock(){if(!ready)return;var len=plan.settings.defaultLen,s=freeStart(len),d=newDraft(s,s+len);d.focus.title='';openEditor(d,true)}
+function deleteBlock(id){
+  var day=dayOf(viewDate);if(!day)return;var b=day.blocks.find(function(x){return x.id===id});if(!b)return;
+  var snap=snapPlan();day.blocks=day.blocks.filter(function(x){return x.id!==id});if(selectedId===id)selectedId=null;
+  pCommit();undoPlan('Block deleted: '+blockTitle(b),snap);
+}
+function duplicateBlock(id){
+  var b=findBlock(id);if(!b)return;var len=b.end-b.start,s=C.nextFreeSlot(blocksOf(viewDate),b.end,len,C.DAY_MIN);
+  if(s==null){toast('There is no free time left after this block today.');return}
+  var snap=snapPlan(),n=clone(b);n.id=uid('b_');n.start=s;n.end=s+len;n.status='planned';n.actualStart=n.actualEnd=n.outcome='';n.createdAt=new Date().toISOString();
+  dayFor(viewDate).blocks.push(n);selectedId=n.id;focusAfter=n.id;closeModal();pCommit();undoPlan('Duplicated to '+fmtHM(n.start)+'–'+fmtHM(n.end)+'.',snap);
+}
+function addBlock(focus,start,label){
+  var len=plan.settings.defaultLen,s=start==null?freeStart(len):start,snap=snapPlan();
+  var n=newDraft(s,s+len,focus);dayFor(viewDate).blocks.push(n);selectedId=n.id;focusAfter=n.id;pCommit();
+  undoPlan('Block added for “'+label+'”, '+fmtHM(n.start)+'–'+fmtHM(n.end)+'.',snap);
+}
+function addInboxBlock(itemId,start){var it=inboxItem(itemId);if(it)addBlock({kind:'inbox',title:it.title,inboxId:it.id},start,it.title)}
+function addTaskBlock(taskId,start){var t=boardReady()&&state.tasks.find(function(x){return x.id===taskId});if(t){var r=refFor(t);addBlock({kind:'board',title:r.title,ref:r},start,t.ref+' '+t.title)}}
+function addRefBlock(r,start){r=C.normTaskRef(r);if(r)addBlock({kind:'board',title:r.title,ref:r},start,(r.ref?r.ref+' ':'')+r.title)}
+// From a card's dialog: switch to the day, and open a new block for that card at the next free time.
+function planTask(taskId){
+  var t=state.tasks.find(function(x){return x.id===taskId});if(!t||!ready)return;
+  ui.view='day';savePrefs();viewDate=today();selectedId=null;render();scrollToNow();
+  var len=plan.settings.defaultLen,s=freeStart(len),r=refFor(t);
+  openEditor(newDraft(s,s+len,{kind:'board',title:r.title,ref:r}),true);
+}
+// For a card's dialog: how much time this card has in plans from today on.
+function taskPlanned(taskId){
+  if(!ready)return null;var from=today(),n=0,min=0;
+  Object.keys(plan.days).forEach(function(k){if(k<from)return;plan.days[k].blocks.forEach(function(b){var r=b.focus.ref;if(b.focus.kind==='board'&&r&&r.taskId===taskId&&r.boardId===curBoard){n++;min+=b.end-b.start}})});
+  return n?{n:n,min:min}:null;
+}
+// For the board: a small "planned today" badge on cards with blocks today.
+var badgeCache={key:'',map:null};
+function cardBadge(t){
+  if(!ready)return '';
+  var key=rev+'|'+curBoard+'|'+today();
+  if(badgeCache.key!==key){var m=Object.create(null);blocksOf(today()).forEach(function(b){var r=b.focus.ref;if(b.focus.kind==='board'&&r&&r.boardId===curBoard)m[r.taskId]=(m[r.taskId]||0)+b.end-b.start});badgeCache={key:key,map:m}}
+  var min=badgeCache.map[t.id];if(!min)return '';
+  return '<span class="badge tb-pl" title="'+esc(fmtDur(min))+' planned today in the Day view">'+ic('clock')+esc(fmtDur(min))+'</span>';
+}
+
+/* inbox item editor */
+function openInboxItem(id){
+  var it=inboxItem(id);if(!it)return;var color=it.color||'';
+  openModal({title:'Inbox item',body:'<label class="fld"><span>Title</span><input id="ii-title" type="text" maxlength="300" value="'+esc(it.title)+'"></label>'
+      +'<label class="fld" style="margin-top:12px"><span>Notes</span><textarea id="ii-notes" rows="4">'+esc(it.notes)+'</textarea></label>'
+      +'<div class="fld" style="margin-top:12px"><span class="lab">Color</span>'+swatchesHtml(color)+'</div><p class="form-err" id="ii-err" role="alert" hidden></p>',
+    foot:'<button class="btn danger text" type="button" data-m="ii-del">'+ic('trash')+'Delete</button><span class="sp"></span><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-m="ii-save">Save</button>',
+    mount:function(){var ci=$('.tb-cin');if(ci)ci.addEventListener('input',function(){color=ci.value.toLowerCase();paint()})},
+    action:function(name,btn){
+      if(name==='pick'){color=btn.dataset.c||'';paint();return}
+      if(name==='ii-del'){var snap=snapPlan();plan.inbox=plan.inbox.filter(function(x){return x.id!==id});closeModal();pCommit();undoPlan('Inbox item deleted. Blocks already planned keep its title.',snap);return}
+      if(name==='ii-save'){var t=cleanName($('#ii-title').value);if(!t){var e=$('#ii-err');e.textContent='Give the item a title.';e.hidden=false;return}
+        it.title=clip(t,300);it.notes=clip($('#ii-notes').value,20000);it.color=color;rememberColor(color);
+        Object.keys(plan.days).forEach(function(k){plan.days[k].blocks.forEach(function(b){if(b.focus.kind==='inbox'&&b.focus.inboxId===id)b.focus.title=it.title})});
+        closeModal();pCommit()}
+    }});
+  function paint(){$$('.tb-pal .sw[data-m=pick]').forEach(function(s){s.setAttribute('aria-pressed',String((s.dataset.c||'')===color))})}
+}
+
+/* backup and restore of the plan (the board's Backup button covers the board) */
+function openPlansBackup(){
+  var pending=null,armed=false,last=plan.meta.lastBackupAt?Date.parse(plan.meta.lastBackupAt):0,ago=last?Math.floor((Date.now()-last)/DAY):-1;
+  var folder=ab.dir&&ab.state==='on'?'<p class="hint" style="margin:0">'+ic('check-circle')+' Also saved automatically as <span class="mono">'+esc((ab.dir.name||'backup')+'/'+PFILE)+'</span> after every change, next to your boards.</p>'
+    :'<p class="hint dim" style="margin:0">Turn on automatic backup to a folder under the board\'s <b>Backup</b> button, and your plans are saved there too, as '+PFILE+'.</p>';
+  openModal({title:'Day plans: backup and restore',noFocus:true,noDirty:true,wide:true,
+    body:'<div class="sec"><h3>Download a backup</h3><p class="hint" style="margin:0">One .json file with every day, block, inbox item and Day view setting. Your plans are personal: they are not part of any board\'s backup or of a shared board.</p>'+folder
+      +'<div class="row-btns"><button class="btn primary" type="button" data-m="pb-dl">'+ic('download-simple')+'Download plans (.json)</button><span class="last-dl'+(ago<0||ago>7?' stale':'')+'"><i></i>'+(last?'Last download '+(ago<=0?'today':ago===1?'yesterday':ago+' days ago'):'No plans downloaded yet')+'</span></div>'
+      +'<p class="msg" id="pb-msg" role="status" hidden></p></div>'
+      +'<div class="sec"><h3>Restore</h3><p class="hint" style="margin:0">Replaces all your day plans with the backup. Backups from the stand-alone time blocker work too. You can undo it for a few seconds afterwards.</p>'
+      +'<div class="row-btns"><button class="btn" type="button" data-m="pb-pick">'+ic('file-arrow-up')+'Choose backup file</button><input type="file" id="pb-file" accept=".json,application/json" hidden><span class="msg" id="pr-msg" role="status"></span></div>'
+      +'<div class="row-btns" id="pr-row" hidden><button class="btn danger" type="button" id="pb-restore" data-m="pb-restore">Replace with this backup</button></div></div>',
+    foot:'<span class="sp"></span><button class="btn" type="button" data-close>Done</button>',
+    mount:function(){
+      $('#pb-file').addEventListener('change',function(ev){
+        var f=ev.target.files&&ev.target.files[0],m=$('#pr-msg');pending=null;armed=false;$('#pr-row').hidden=true;if(!f)return;
+        var rd=new FileReader();
+        rd.onload=function(){try{var s=C.normalize(JSON.parse(String(rd.result))),nb=0;Object.keys(s.days).forEach(function(k){nb+=s.days[k].blocks.length});pending=s;
+            m.className='msg ok';m.textContent=f.name+': '+Object.keys(s.days).length+' days, '+nb+' blocks, '+s.inbox.length+' inbox items.';$('#pr-row').hidden=false;$('#pb-restore').textContent='Replace with this backup';$('#pb-restore').classList.remove('armed')}
+          catch(e){m.className='msg err';m.textContent=(e&&e.message)||'That file could not be read as a backup of day plans.'}};
+        rd.onerror=function(){m.className='msg err';m.textContent='The file could not be read.'};
+        rd.readAsText(f);
+      });
+    },
+    action:async function(name,btn){
+      if(name==='pb-pick'){$('#pb-file').click();return}
+      if(name==='pb-dl'){
+        var r=await saveFile('day-plans-'+today()+'.json',JSON.stringify(plan,null,2)),m=$('#pb-msg');m.hidden=false;
+        if(r==='ok'){plan.meta.lastBackupAt=new Date().toISOString();pCommit();m.className='msg ok';m.textContent='Backup saved.'}
+        else{m.className='msg err';m.textContent=r==='declined'?'Download cancelled.':'Downloads are not available in this view.'}
+        return;
+      }
+      if(name==='pb-restore'&&pending){
+        if(!armed){armed=true;btn.classList.add('armed');btn.textContent='Click again to replace all your day plans';return}
+        var snap=snapPlan();plan=pending;plan.meta.title='Day plan';closeModal();pCommit();undoPlan('Day plans restored.',snap);
+      }
+    }});
+}
+function openSettings(){
+  var st=plan.settings,hourOpts=function(sel,lo,hi){var h='';for(var m=lo;m<=hi;m+=60)h+='<option value="'+m+'"'+(m===sel?' selected':'')+'>'+fmtHM(m)+'</option>';return h};
+  var snapSeg=C.SNAPS.map(function(n){return '<label class="seg-opt"><input type="radio" name="s-snap" value="'+n+'"'+(n===st.snap?' checked':'')+'>'+n+' min</label>'}).join('');
+  var lens=[15,30,45,60,90,120];if(lens.indexOf(st.defaultLen)<0)lens.push(st.defaultLen);lens.sort(function(a,b){return a-b});
+  openModal({title:'Day view settings',noFocus:true,
+    body:'<div class="tb-set"><label class="fld"><span>Day starts</span><select id="s-start">'+hourOpts(st.dayStart,0,1380)+'</select></label>'
+      +'<label class="fld"><span>Day ends</span><select id="s-end">'+hourOpts(st.dayEnd,60,1440)+'</select></label>'
+      +'<div class="fld span2"><span class="lab" id="s-snap-l">Snap to</span><div class="seg" role="radiogroup" aria-labelledby="s-snap-l">'+snapSeg+'</div></div>'
+      +'<label class="fld"><span>New block length</span><select id="s-len">'+lens.map(function(n){return '<option value="'+n+'"'+(n===st.defaultLen?' selected':'')+'>'+fmtDur(n)+'</option>'}).join('')+'</select></label>'
+      +'<label class="fld"><span>Week starts on</span><select id="s-week"><option value="1"'+(st.weekStartsOn===1?' selected':'')+'>Monday</option><option value="0"'+(st.weekStartsOn===0?' selected':'')+'>Sunday</option></select></label></div>'
+      +'<p class="hint dim" style="margin:12px 0 0">The day grows on its own to show blocks outside these hours. Changing the snap never moves existing blocks; it applies to new edits. Hold Alt while dragging for 5-minute steps.</p><p class="form-err" id="s-err" role="alert" hidden></p>',
+    foot:'<span class="sp"></span><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-m="s-save">Save</button>',
+    action:function(name){
+      if(name!=='s-save')return;
+      var s=+$('#s-start').value,e=+$('#s-end').value;if(e<=s){var er=$('#s-err');er.textContent='The day must end after it starts.';er.hidden=false;return}
+      var n=+(($('input[name=s-snap]:checked')||{}).value||15);
+      plan.settings=Object.assign({},st,{dayStart:s,dayEnd:e,snap:n,defaultLen:Math.max(n,+$('#s-len').value),weekStartsOn:+$('#s-week').value});
+      closeModal();pCommit();
+    }});
+}
+function openShortcuts(){
+  var row=function(k,t){return '<tr><td><kbd>'+k+'</kbd></td><td>'+t+'</td></tr>'};
+  openModal({title:'Day view shortcuts',noDirty:true,noFocus:true,body:'<table class="table tb-keys"><tbody>'
+    +row('N','New block at the next free time')+row('T','Go to today')+row('← / →','Previous or next day')+row('/','Search the panel (tasks or inbox)')
+    +row('↑ / ↓','Move the selected block by the snap')+row('Shift + ↑ / ↓','Make the selected block shorter or longer')+row('Enter','Open the selected block')+row('X','Mark the selected block done, or not done')+row('Delete','Delete the selected block (with Undo)')
+    +row('Alt while dragging','5-minute steps')+row('Esc','Close a dialog')+row('?','This list')+'</tbody></table>',
+    foot:'<span class="sp"></span><button class="btn" type="button" data-close>Done</button>'});
+}
+
+/* ---------- day navigation and the day note ---------- */
+function goTo(date){if(!validDate(date)||!ready)return;viewDate=date;selectedId=null;renderDay();scrollToNow()}
+function shiftDay(n){goTo(fromDay(toDay(viewDate)+n))}
+var noteT=null;
+$('#tb-note').addEventListener('input',function(e){
+  growNote();if(!ready)return;
+  var v=clip(e.target.value,20000),d=viewDate;clearTimeout(noteT);
+  noteT=setTimeout(function(){dayFor(d).note=v;rev++;plan.meta.updatedAt=new Date().toISOString();tidyDays();scheduleSave();abSchedule()},300);
+});
+
+/* ---------- timeline interaction: draw, move, resize ---------- */
+function liveUpdate(){
+  var el=drag.el,c=drag.cur;if(!el)return;
+  el.style.top=yOf(c.start)+'px';el.style.height=Math.max(14,(c.end-c.start)*PPM-2)+'px';
+  var t=$('.tb-b-time',el);if(t)t.textContent=fmtHM(c.start)+'–'+fmtHM(c.end);
+  var du=$('.tb-b-dur',el);if(du)du.textContent=fmtDur(c.end-c.start);
+}
+function edgeScroll(clientY){var sc=$('#tb-scroll'),r=sc.getBoundingClientRect(),edge=40;if(clientY<r.top+edge)sc.scrollTop-=Math.ceil((r.top+edge-clientY)/3);else if(clientY>r.bottom-edge)sc.scrollTop+=Math.ceil((clientY-r.bottom+edge)/3)}
+var colEl=$('#tb-col');
+colEl.addEventListener('pointerdown',function(e){
+  if(e.button>0||!ready)return;
+  if(e.target.closest('.tb-chk'))return;
+  var blk=e.target.closest('.tb-block'),m=minuteAt(e.clientY);
+  if(blk){
+    var b=findBlock(blk.dataset.id);if(!b)return;
+    var rz=e.target.closest('.tb-rz');
+    drag={type:rz?'resize-'+rz.dataset.rz:'move',id:b.id,b0:{start:b.start,end:b.end},m0:m,y0:e.clientY,moved:false,pid:e.pointerId,el:blk,cur:{start:b.start,end:b.end}};
+    selectedId=b.id;$$('.tb-block.sel').forEach(function(x){x.classList.remove('sel')});blk.classList.add('sel');
+  }else drag={type:e.pointerType==='touch'?'tap-empty':'create',m0:m,y0:e.clientY,moved:false,pid:e.pointerId,el:null,cur:null};
+  if(drag.type!=='tap-empty'){try{colEl.setPointerCapture(e.pointerId)}catch(x){}e.preventDefault()}
+});
+colEl.addEventListener('pointermove',function(e){
+  if(!drag||e.pointerId!==drag.pid)return;
+  if(!drag.moved&&Math.abs(e.clientY-drag.y0)<4)return;
+  if(drag.type==='tap-empty'){drag=null;return}
+  drag.moved=true;edgeScroll(e.clientY);
+  var g=e.altKey?5:snapOf(),m=minuteAt(e.clientY),dm=m-drag.m0;
+  if(drag.type==='move'){var len=drag.b0.end-drag.b0.start,s=Math.round((drag.b0.start+dm)/g)*g;s=Math.max(0,Math.min(C.DAY_MIN-len,s));drag.cur={start:s,end:s+len}}
+  else if(drag.type==='resize-top'){var s2=Math.round((drag.b0.start+dm)/g)*g;s2=Math.max(0,Math.min(drag.b0.end-g,s2));drag.cur={start:s2,end:drag.b0.end}}
+  else if(drag.type==='resize-bottom'){var e2=Math.round((drag.b0.end+dm)/g)*g;e2=Math.min(C.DAY_MIN,Math.max(drag.b0.start+g,e2));drag.cur={start:drag.b0.start,end:e2}}
+  else if(drag.type==='create'){
+    var a=snapMin(drag.m0,g,'floor'),b2=snapMin(m,g),lo=Math.min(a,b2),hi=Math.max(a,b2);if(hi-lo<g)hi=lo+g;drag.cur=fixRange(lo,hi,g);
+    if(!drag.el){drag.el=document.createElement('div');drag.el.className='tb-block tb-ghost';drag.el.innerHTML='<div class="tb-b-head"><span class="tb-b-time"></span><span class="tb-b-dur"></span></div>';colEl.appendChild(drag.el)}
+  }
+  liveUpdate();
+});
+function endDrag(e,cancel){
+  if(!drag||(e&&e.pointerId!==drag.pid))return;
+  var d=drag;drag=null;
+  if(d.type==='create'&&d.el&&d.el.parentNode)d.el.parentNode.removeChild(d.el);
+  if(cancel){renderDay();return}
+  if(!d.moved){
+    if(d.type==='move'||d.type.indexOf('resize')===0){var b=findBlock(d.id);if(b)openEditor(b,false);return}
+    if(d.type==='create'||d.type==='tap-empty'){var g=snapOf(),s=snapMin(d.m0,g,'floor'),len=plan.settings.defaultLen;openEditor(newDraft(s,Math.min(C.DAY_MIN,s+len)),true);return}
+    return;
+  }
+  if(d.type==='create'){openEditor(newDraft(d.cur.start,d.cur.end),true);return}
+  var blk=findBlock(d.id);if(!blk)return;
+  if(blk.start===d.cur.start&&blk.end===d.cur.end){renderDay();return}
+  var snap=snapPlan();blk.start=d.cur.start;blk.end=d.cur.end;focusAfter=blk.id;pCommit();
+  undoPlan((d.type==='move'?'Moved to ':'Now ')+fmtHM(blk.start)+'–'+fmtHM(blk.end)+'.',snap);
+}
+colEl.addEventListener('pointerup',function(e){endDrag(e,false)});
+colEl.addEventListener('pointercancel',function(e){endDrag(e,true)});
+colEl.addEventListener('lostpointercapture',function(e){if(drag&&drag.pid===e.pointerId&&drag.moved)endDrag(e,false)});
+colEl.addEventListener('click',function(e){var c=e.target.closest('.tb-chk');if(c)toggleDone(c.dataset.chk,false)});
+
+/* keyboard on a block: arrows move or resize by the snap, Enter opens, X ticks, Delete removes.
+   Moves made in quick succession share one Undo. */
+var kb={id:null,snap:null,t:null};
+colEl.addEventListener('keydown',function(e){
+  var el=e.target.closest&&e.target.closest('.tb-block');if(!el||el.classList.contains('tb-ghost')||!ready)return;
+  var b=findBlock(el.dataset.id);if(!b)return;
+  if(e.key==='Enter'||e.key===' '){e.preventDefault();openEditor(b,false);return}
+  if(e.key==='x'||e.key==='X'){e.preventDefault();toggleDone(b.id,true);return}
+  if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deleteBlock(b.id);var nx=$('.tb-block');if(nx)nx.focus();return}
+  if(e.key!=='ArrowUp'&&e.key!=='ArrowDown')return;
+  e.preventDefault();e.stopPropagation();
+  var g=e.altKey?5:snapOf(),dir=e.key==='ArrowUp'?-1:1;
+  if(kb.id!==b.id||!kb.snap)kb={id:b.id,snap:snapPlan(),t:null};
+  clearTimeout(kb.t);kb.t=setTimeout(function(){kb={id:null,snap:null,t:null}},4000);
+  if(e.shiftKey){var ne=Math.max(b.start+g,Math.min(C.DAY_MIN,b.end+dir*g));if(ne===b.end)return;b.end=ne}
+  else{var len=b.end-b.start,ns=Math.max(0,Math.min(C.DAY_MIN-len,b.start+dir*g));if(ns===b.start)return;b.start=ns;b.end=ns+len}
+  selectedId=b.id;focusAfter=b.id;var snap=kb.snap;pCommit();
+  undoPlan((e.shiftKey?'Now ':'Moved to ')+fmtHM(b.start)+'–'+fmtHM(b.end)+'.',snap);
+});
+colEl.addEventListener('focusin',function(e){var el=e.target.closest&&e.target.closest('.tb-block');if(el){selectedId=el.dataset.id;$$('.tb-block.sel').forEach(function(x){x.classList.toggle('sel',x===el)})}});
+
+/* drops onto the timeline: inbox items, the panel's tasks, and TaskRefs from anywhere (labboard.taskref/1) */
+var MIME_IB='application/x-timeblock-inbox',MIME_REF='application/x-labboard-taskref+json',MIME_TASK='application/x-labboard-task';
+var dropGhost=null;
+function clearDropGhost(){if(dropGhost&&dropGhost.parentNode)dropGhost.parentNode.removeChild(dropGhost);dropGhost=null}
+function dropKind(dt){var ty=dt&&dt.types?Array.prototype.slice.call(dt.types):[];return ty.indexOf(MIME_TASK)>=0?MIME_TASK:ty.indexOf(MIME_IB)>=0?MIME_IB:ty.indexOf(MIME_REF)>=0?MIME_REF:null}
+colEl.addEventListener('dragover',function(e){
+  if(!ready||!dropKind(e.dataTransfer))return;
+  e.preventDefault();e.dataTransfer.dropEffect='copy';edgeScroll(e.clientY);
+  var g=snapOf(),len=plan.settings.defaultLen,s=snapMin(minuteAt(e.clientY),g,'floor');s=Math.max(0,Math.min(C.DAY_MIN-len,s));
+  if(!dropGhost){dropGhost=document.createElement('div');dropGhost.className='tb-block tb-ghost';dropGhost.innerHTML='<div class="tb-b-head"><span class="tb-b-time"></span></div>';colEl.appendChild(dropGhost)}
+  dropGhost.style.top=yOf(s)+'px';dropGhost.style.height=(len*PPM-2)+'px';$('.tb-b-time',dropGhost).textContent=fmtHM(s)+'–'+fmtHM(s+len);dropGhost.dataset.start=s;
+});
+colEl.addEventListener('dragleave',function(e){if(!colEl.contains(e.relatedTarget))clearDropGhost()});
+colEl.addEventListener('drop',function(e){
+  var k=dropKind(e.dataTransfer);if(!k||!ready)return;
+  e.preventDefault();var s=dropGhost?+dropGhost.dataset.start:null;clearDropGhost();
+  var v=e.dataTransfer.getData(k);
+  if(k===MIME_TASK)addTaskBlock(v,s);else if(k===MIME_IB)addInboxBlock(v,s);else{try{addRefBlock(JSON.parse(v),s)}catch(x){toast('That task could not be read.')}}
+});
+$('#tb-panel').addEventListener('dragstart',function(e){
+  var tk=e.target.closest&&e.target.closest('.tb-tk[draggable=true]');
+  if(tk&&boardReady()){var t=state.tasks.find(function(x){return x.id===tk.dataset.tid});if(!t)return;
+    e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData(MIME_TASK,t.id);e.dataTransfer.setData(MIME_REF,JSON.stringify(refFor(t)));e.dataTransfer.setData('text/plain',t.ref+' '+t.title);return}
+  var it=e.target.closest&&e.target.closest('.tb-ib[draggable=true]');if(!it)return;
+  var x=inboxItem(it.dataset.id);if(!x)return;
+  e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData(MIME_IB,x.id);e.dataTransfer.setData('text/plain',x.title);
+});
+$('#tb-panel').addEventListener('dragend',clearDropGhost);
+
+/* ---------- event wiring ---------- */
+document.addEventListener('click',function(e){
+  if(!ready||!$('#overlay').hidden)return;
+  var a=e.target.closest('[data-act^="tb-"]');if(!a)return;
+  var k=a.dataset.act,id=a.dataset.id;
+  if(k==='tb-ib-block'){addInboxBlock(id,null);return}
+  if(k==='tb-ib-edit'){openInboxItem(id);return}
+  if(k==='tb-ib-done'){var it=inboxItem(id);if(!it)return;var snap=snapPlan();it.doneAt=it.doneAt?'':new Date().toISOString();pCommit();if(it.doneAt)undoPlan('“'+it.title+'” marked done.',snap);return}
+  if(k==='tb-task-block'){addTaskBlock(a.dataset.tid,null);return}
+  if(k==='tb-card'){if(boardReady())openTask(a.dataset.tid);return}
+});
+$$('.tb-ptabs [data-ptab]').forEach(function(b){b.addEventListener('click',function(){pui.tab=b.dataset.ptab;savePPrefs();renderPanel()})});
+var tqT=null;$('#tp-q').addEventListener('input',function(){clearTimeout(tqT);tqT=setTimeout(function(){if(ready&&boardReady())renderPanel()},120)});
+$('#tp-who').addEventListener('change',function(e){pui.who=e.target.value;savePPrefs();renderPanel()});
+$('#tp-done').addEventListener('click',function(){pui.hideDone=!pui.hideDone;savePPrefs();renderPanel()});
+$('#tb-prev').addEventListener('click',function(){shiftDay(-1)});
+$('#tb-next').addEventListener('click',function(){shiftDay(1)});
+$('#tb-today').addEventListener('click',function(){goTo(today())});
+$('#tb-pick').addEventListener('change',function(e){if(e.target.value)goTo(e.target.value)});
+$('#tb-cal').addEventListener('click',function(){var p=$('#tb-pick');p.value=viewDate;try{p.showPicker()}catch(x){p.focus();p.click()}});
+$('#tb-new').addEventListener('click',newBlock);
+$('#tb-backup').addEventListener('click',function(){if(ready)openPlansBackup()});
+$('#tb-settings').addEventListener('click',function(){if(ready)openSettings()});
+$('#tb-keys').addEventListener('click',openShortcuts);
+$('#tb-panel-btn').addEventListener('click',function(){pui.panel=!pui.panel;savePPrefs();renderBar()});
+$('#ib-form').addEventListener('submit',function(e){
+  e.preventDefault();if(!ready)return;
+  var inp=$('#ib-add'),t=clip(cleanName(inp.value),300);if(!t)return;
+  plan.inbox.unshift({id:uid('i_'),title:t,notes:'',color:'',createdAt:new Date().toISOString(),doneAt:''});inp.value='';pCommit();
+});
+$('#ib-done-toggle').addEventListener('click',function(){pui.showDone=!pui.showDone;savePPrefs();renderPanel()});
+// Keys for the Day view, called by the board's key handler when no dialog is open. True when handled.
+function key(e){
+  if(e.key==='Escape'&&drag){endDrag({pointerId:drag.pid},true);return true}
+  var typing=e.target.closest&&e.target.closest('input,textarea,select,[contenteditable]');
+  if(typing||e.ctrlKey||e.metaKey||!ready)return false;
+  if(e.key==='n'||e.key==='N'){e.preventDefault();newBlock();return true}
+  if(e.key==='t'||e.key==='T'){e.preventDefault();goTo(today());return true}
+  if(e.key==='ArrowLeft'&&!e.altKey){e.preventDefault();shiftDay(-1);return true}
+  if(e.key==='ArrowRight'&&!e.altKey){e.preventDefault();shiftDay(1);return true}
+  if(e.key==='/'){e.preventDefault();if(!pui.panel){pui.panel=true;savePPrefs();renderBar()}$(pui.tab==='inbox'?'#ib-add':'#tp-q').focus();return true}
+  if(e.key==='?'){e.preventDefault();openShortcuts();return true}
+  return false;
+}
+// The now line moves every 30 seconds; past midnight "today" moves on too.
+var lastToday=today();
+setInterval(function(){if(!ready||ui.view!=='day')return;var t=today();if(t!==lastToday){var was=viewDate===lastToday;lastToday=t;if(was)viewDate=t;renderDay()}else{placeNow()}},30000);
+
+return {init:init,render:renderAll,key:key,planTask:planTask,taskPlanned:taskPlanned,cardBadge:cardBadge,syncFromBoard:syncFromBoard,
+  abWrite:abWritePlan,abFlush:flushBackup,scrollToNow:scrollToNow,fmtDur:fmtDur,ready:function(){return ready}};
+})();
+
 /* ---------- event wiring ---------- */
 var suppressClickAt=0;
 document.addEventListener('click',function(e){
@@ -3356,6 +4513,8 @@ document.addEventListener('keydown',function(e){
     return;
   }
   if(open)return;
+  // The Day view has its own keys.
+  if(ui.view==='day'){Planner.key(e);return}
   // "/" jumps to search, N starts a new task (not while typing).
   var typing=e.target.closest&&e.target.closest('input,textarea,select,[contenteditable]');
   if(!typing&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&state&&loaded){
@@ -3382,8 +4541,8 @@ $('#btn-backup').addEventListener('click',whenReady(openBackup));
 $('#btn-export').addEventListener('click',whenReady(openExport));
 $('#btn-archive').addEventListener('click',whenReady(openArchive));
 $('#ab-chip').addEventListener('click',whenReady(function(){if(ab.state==='paused')abResume().then(syncAbChip);else openBackup()}));
-document.addEventListener('visibilitychange',function(){if(document.hidden&&ab.timer){clearTimeout(ab.timer);ab.timer=null;abWrite()}});
-$$('.tabs button').forEach(function(b){b.addEventListener('click',function(){if(ui.view!==b.dataset.view)tlJump=true;ui.view=b.dataset.view;savePrefs();render()})});
+document.addEventListener('visibilitychange',function(){if(document.hidden&&ab.timer){clearTimeout(ab.timer);ab.timer=null;abWrite()}if(document.hidden)Planner.abFlush()});
+$$('.tabs button').forEach(function(b){b.addEventListener('click',function(){var was=ui.view;if(was!==b.dataset.view)tlJump=true;ui.view=b.dataset.view;savePrefs();render();if(ui.view==='day'&&was!=='day')Planner.scrollToNow()})});
 $$('#tl-zoom [data-zoom]').forEach(function(b){b.addEventListener('click',function(){ui.zoom=b.dataset.zoom;tlJump=true;savePrefs();render()})});
 $('#tl-today').addEventListener('click',tlToday);
 // Theme: System follows the OS setting; Light and Dark override it and are remembered in this browser.
@@ -3573,6 +4732,7 @@ function refreshToday(){var t=toDay(isoLocal(new Date()));if(t!==TODAY){TODAY=t;
 setInterval(refreshToday,60000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshToday()});
 
+Planner.init();
 boot();
 })();
 </script>

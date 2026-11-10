@@ -1,5 +1,6 @@
-// Unit tests for the time blocker's pure logic. Run: node --test tests/
-// The logic lives in <script id="tb-core"> inside time-blocker.html; it is loaded here as it is, with no copy.
+// Unit tests for the day planner's pure logic. Run: node --test 'tests/*.test.js'
+// The logic lives in <script id="tb-core"> inside lab-board.html (and the same copy in time-blocker.html);
+// it is loaded here as it is, with no copy.
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -7,16 +8,20 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-function loadCore() {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'time-blocker.html'), 'utf8');
+function coreSource(file) {
+  const html = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
   const m = html.match(/<script id="tb-core">([\s\S]*?)<\/script>/);
-  if (!m) throw new Error('tb-core script not found');
+  if (!m) throw new Error('tb-core script not found in ' + file);
+  return m[1];
+}
+function loadCore(file) {
   const ctx = { module: { exports: {} }, console };
   vm.createContext(ctx);
-  vm.runInContext(m[1], ctx, { filename: 'time-blocker.html#tb-core' });
+  vm.runInContext(coreSource(file), ctx, { filename: file + '#tb-core' });
   return ctx.module.exports;
 }
-const C = loadCore();
+// The board (with its Day view) is the main app; the stand-alone time blocker carries the same core.
+const C = loadCore('lab-board.html');
 const B = (id, start, end, extra) => Object.assign({ id, start, end, focus: { kind: 'adhoc', title: id }, status: 'planned' }, extra);
 // Objects from the vm context have another realm's prototypes; compare plain copies.
 const plain = (x) => JSON.parse(JSON.stringify(x));
@@ -176,4 +181,73 @@ test('changing the snap setting never moves stored blocks', () => {
     const b = s.days['2026-11-09'].blocks[0];
     assert.deepEqual([b.start, b.end], [545, 610], 'snap ' + snap);
   }
+});
+
+test('the board and the stand-alone time blocker carry the same core', () => {
+  assert.equal(coreSource('lab-board.html'), coreSource('time-blocker.html'));
+});
+
+// The board's sample data, built by the board's own buildSample().
+function sampleBoard() {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'lab-board.html'), 'utf8');
+  const m = html.match(/<script>\s*(function buildSample[\s\S]*?if\(typeof module!=='undefined'\) module\.exports=buildSample;)/);
+  const ctx = { module: { exports: {} } };
+  vm.createContext(ctx);
+  vm.runInContext(m[1], ctx);
+  return plain(ctx.module.exports('2026-11-10'));
+}
+
+test('toTaskRef carries a card over from the board', () => {
+  const b = sampleBoard();
+  const t = b.tasks.find((x) => x.ref === 'T-003');
+  t.att = [{ id: 'a_1', kind: 'link', name: 'Protocol', url: 'https://example.org/p' }, { id: 'a_2', kind: 'file', name: 'gel.png' }];
+  const r = plain(C.toTaskRef(b, 'main', t));
+  assert.equal(r.schema, 'labboard.taskref/1');
+  assert.deepEqual([r.boardId, r.boardTitle, r.taskId, r.ref, r.title], ['main', 'Lab Task Board', t.id, 'T-003', 'Lentivirus packaging and titer']);
+  assert.deepEqual([r.projectId, r.projectName, r.projectColor], ['pr_crispr', 'CRISPR knockout screen', '#5fc4b4']);
+  assert.deepEqual([r.stageId, r.stageName, r.stageDone], ['st_prog', 'In Progress', false]);
+  assert.deepEqual([r.priority, r.assignee, r.start, r.due, r.blocked], ['critical', 'Patel', t.start, t.due, false]);
+  assert.deepEqual(r.links, [{ name: 'Protocol', url: 'https://example.org/p' }], 'links only; files are never copied');
+  assert.ok(r.pulledAt && r.sourceUpdatedAt === b.meta.updatedAt);
+  const done = plain(C.toTaskRef(b, 'main', b.tasks.find((x) => x.stageId === 'st_done')));
+  assert.equal(done.stageDone, true);
+  // A card pointing at a stage that no longer exists reads as the first stage, as on the board.
+  const lost = plain(C.toTaskRef(b, 'main', Object.assign({}, t, { stageId: 'st_gone', projectId: 'pr_gone' })));
+  assert.deepEqual([lost.stageId, lost.projectName], ['st_todo', '']);
+});
+
+test('normTaskRef checks and caps a snapshot', () => {
+  assert.equal(C.normTaskRef(null), null);
+  assert.equal(C.normTaskRef({ title: 'no id' }), null);
+  assert.equal(C.normTaskRef({ taskId: 't_1', schema: 'labboard.taskref/9' }), null, 'unknown schema versions are refused');
+  const r = plain(C.normTaskRef({ taskId: 't_1', title: 'x'.repeat(400), priority: 'urgent', due: '2026-02-30', color: 'red', projectColor: '#0E9F8E',
+    links: [{ name: 'ok', url: 'https://a.b/c' }, { name: 'bad', url: 'javascript:alert(1)' }], blocked: 1, pulledAt: 'yesterday' }));
+  assert.equal(r.title.length, 300);
+  assert.equal(r.priority, 'medium');
+  assert.equal(r.due, '');
+  assert.equal(r.color, '');
+  assert.equal(r.projectColor, '#5fc4b4', 'old palette colors are re-tuned like the board does');
+  assert.deepEqual(r.links, [{ name: 'ok', url: 'https://a.b/c' }]);
+  assert.equal(r.blocked, true);
+  assert.equal(r.pulledAt, '');
+  assert.equal(r.boardId, 'main');
+  assert.deepEqual(plain(C.normTaskRef(r)), r, 'idempotent');
+});
+
+test('a board block keeps its snapshot through normalize; sameRef ignores only timestamps', () => {
+  const b = sampleBoard();
+  const ref = plain(C.toTaskRef(b, 'main', b.tasks[2]));
+  const st = C.normalize({ version: 1, days: { '2026-11-10': { blocks: [{ id: 'b_1', start: 540, end: 600, focus: { kind: 'board', title: 'stale', ref } }] } } });
+  const f = plain(st.days['2026-11-10'].blocks[0].focus);
+  assert.equal(f.kind, 'board');
+  assert.equal(f.title, ref.title, 'the title follows the snapshot');
+  assert.deepEqual(f.ref, ref);
+  const later = Object.assign({}, ref, { pulledAt: new Date(Date.now() + 5000).toISOString(), sourceUpdatedAt: '' });
+  assert.equal(C.sameRef(ref, later), true);
+  assert.equal(C.sameRef(ref, Object.assign({}, ref, { due: '2027-01-01' })), false);
+  assert.equal(C.sameRef(ref, Object.assign({}, ref, { links: [{ name: 'n', url: 'https://x.y/' }] })), false);
+  // Without a usable snapshot a board block falls back to a free-text block.
+  const bad = C.normalize({ version: 1, days: { '2026-11-10': { blocks: [{ id: 'b_2', start: 540, end: 600, focus: { kind: 'board', title: 'Kept title', ref: { nope: 1 } } }] } } });
+  assert.deepEqual(plain(bad.days['2026-11-10'].blocks[0].focus).kind, 'adhoc');
+  assert.equal(bad.days['2026-11-10'].blocks[0].focus.title, 'Kept title');
 });
